@@ -1,4 +1,4 @@
-import {info, warning} from '@actions/core'
+import {info, warning, debug} from '@actions/core'  // debug 추가
 // eslint-disable-next-line camelcase
 import {context as github_context} from '@actions/github'
 import {type Bot} from './bot'
@@ -34,11 +34,17 @@ const resolveComment = async (
   pullNumber: number, 
   comment: ReviewComment
 ): Promise<void> => {
+  info(`Found modified code for comment at ${comment.path}:${comment.line}`);
+  info('Previous comment:');
+  info(comment.body);
+  
   await commenter.reviewCommentReply(
     pullNumber,
     comment,
     '✅ The code has been modified.'
   );
+  
+  debug(`Marked comment ${comment.id} as resolved`);
 }
 
 const checkLineModified = (oldDiff: string, newDiff: string): boolean => {
@@ -227,9 +233,12 @@ export const handleReviewComment = async (
     pull_number: context.payload.pull_request.number
   });
   
+  info('Checking for resolved comments...');
+  
   for (const comment of comments.data) {
     if (comment.body.includes(COMMENT_TAG) && !comment.body.includes('✅')) {
       if (!comment.position) { // position이 없다면 해당 라인이 수정됨
+        info(`Found modified code at ${comment.path}`);
         await resolveComment(context.payload.pull_request.number, comment);
       }
     }
