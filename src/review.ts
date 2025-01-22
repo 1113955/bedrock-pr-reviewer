@@ -37,6 +37,7 @@ export const codeReview = async (
   const pullNumber = context.payload.pull_request?.number
   if (!pullNumber) return
 
+  info(`codeReview pullNumber ${pullNumber}`)
   try {
     // Get all review comments
     const comments = await octokit.pulls.listReviewComments({

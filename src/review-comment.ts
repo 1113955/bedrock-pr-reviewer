@@ -34,6 +34,7 @@ const resolveComment = async (
   pullNumber: number, 
   comment: ReviewComment
 ): Promise<void> => {
+  const commenter: Commenter = new Commenter()
   info(`Found modified code for comment at ${comment.path}:${comment.line}`);
   info('Previous comment:');
   info(comment.body);
