@@ -32,19 +32,13 @@ interface ReviewComment {
 
 const resolveComment = async (
   pullNumber: number, 
-  comment: ReviewComment,
-  currentDiff: string
+  comment: ReviewComment
 ): Promise<void> => {
-  // 코멘트가 있는 라인이 변경되었는지 확인
-  const isLineModified = checkLineModified(comment.diff_hunk || '', currentDiff);
-  
-  if (isLineModified) {
-    await octokit.pulls.updateReviewComment({
-      ...repo,
-      comment_id: comment.id,
-      body: `${comment.body}\n\n✅ Resolved: The code has been modified to address this comment.`
-    });
-  }
+  await commenter.reviewCommentReply(
+    pullNumber,
+    comment,
+    '✅ The code has been modified.'
+  );
 }
 
 const checkLineModified = (oldDiff: string, newDiff: string): boolean => {
@@ -227,27 +221,16 @@ export const handleReviewComment = async (
     info(`Skipped: ${context.eventName} event is from the bot itself`)
   }
 
-  // Check previous comments that may be resolved
+  // Check previous comments for modifications
   const comments = await octokit.pulls.listReviewComments({
     ...repo,
     pull_number: context.payload.pull_request.number
   });
-
-  const diffAll = await octokit.repos.compareCommits({
-    ...repo,
-    base: context.payload.pull_request.base.sha,
-    head: context.payload.pull_request.head.sha
-  });
   
   for (const comment of comments.data) {
-    if (comment.body.includes(COMMENT_TAG) && !comment.body.includes('✅ Resolved')) {
-      const file = diffAll.data.files?.find(f => f.filename === comment.path);
-      if (file?.patch) {
-        await resolveComment(
-          context.payload.pull_request.number, 
-          comment,
-          file.patch
-        );
+    if (comment.body.includes(COMMENT_TAG) && !comment.body.includes('✅')) {
+      if (!comment.position) { // position이 없다면 해당 라인이 수정됨
+        await resolveComment(context.payload.pull_request.number, comment);
       }
     }
   }
