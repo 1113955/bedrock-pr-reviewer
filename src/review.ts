@@ -46,15 +46,18 @@ export const codeReview = async (
     })
 
     // Filter and resolve non-required comments
-    const nonRequiredComments = comments.data.filter(
-      (comment: {body?: string}) => 
-        comment.body?.includes(COMMENT_TAG) && 
-        !comment.body.startsWith('[필수]')
-    )
+    const nonRequiredComments = comments.data
+      
+    //   .filter(
+    //   (comment: {body?: string}) => 
+    //     comment.body?.includes(COMMENT_TAG) && 
+    //     !comment.body.startsWith('[필수]')
+    // )
 
     // Resolve comments in parallel with rate limiting
     const resolvePromises = nonRequiredComments.map(async (comment: {id: number; body?: string}) => {
       try {
+        info(`Resolving comment ${comment.id}, ${comment.body}`)
         await commenter.reviewCommentReply(
           pullNumber,
           comment,
@@ -427,7 +430,7 @@ ${
   }
 
   const summaries = (await Promise.all(summaryPromises)).filter(
-    summary => summary !== null
+    (summary: [string, string, boolean] | null) => summary !== null
   ) as Array<[string, string, boolean]>
 
   if (summaries.length > 0) {
