@@ -47,6 +47,14 @@ export const COMMIT_ID_END_TAG = '<!-- commit_ids_reviewed_end -->'
 
 const SELF_LOGIN = 'github-actions[bot]'
 
+interface Comment {
+  id: number
+  body: string
+  line?: number
+  startLine?: number
+  endLine?: number
+}
+
 export class Commenter {
   /**
    * @param mode Can be "create", "replace". Default is "replace".
@@ -795,5 +803,61 @@ ${commentBody}`
       )
     }
     return commentBody
+  }
+
+  async resolveComment(commentId: number): Promise<void> {
+    if (context.payload.pull_request == null) return
+
+    await octokit.pulls.updateReviewComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      comment_id: commentId,
+      body: `~${(await this.getComment(commentId)).body}~\n\n**Resolved:** Code was updated.`
+    })
+  }
+
+  async getComment(commentId: number): Promise<Comment> {
+    const response = await octokit.pulls.getReviewComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      comment_id: commentId
+    })
+    return response.data
+  }
+
+  async shouldResolveComment(
+    filename: string,
+    startLine: number,
+    endLine: number,
+    patch: string
+  ): Promise<boolean> {
+    // Check if the code in the given line range matches the previous patch
+    const newCode = this.extractCodeFromPatch(patch)
+    const oldComment = await this.getCommentChainsWithinRange(
+      context.payload.pull_request!.number,
+      filename, 
+      startLine,
+      endLine,
+      COMMENT_REPLY_TAG
+    )
+    if (!oldComment) return false
+
+    // If code has changed since the comment was made
+    return newCode.trim() !== this.extractCodeFromComment(oldComment).trim()
+  }
+
+  private extractCodeFromPatch(patch: string): string {
+    // Extract only the code content from patch, ignoring line numbers and markers
+    const lines = patch.split('\n')
+    return lines
+      .filter(line => line.startsWith('+'))
+      .map(line => line.substring(1))
+      .join('\n')
+  }
+
+  private extractCodeFromComment(comment: string): string {
+    // Extract code content from the original comment
+    const codeBlockMatch = comment.match(/```[\s\S]*?```/)
+    return codeBlockMatch ? codeBlockMatch[0].replace(/```/g, '').trim() : ''
   }
 }

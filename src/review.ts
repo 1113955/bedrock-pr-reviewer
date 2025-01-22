@@ -564,9 +564,27 @@ ${
             COMMENT_REPLY_TAG
           )
 
+          // Check if previous comments should be resolved
           if (allChains.length > 0) {
-            info(`Found comment chains: ${allChains} for ${filename}`)
-            commentChain = allChains
+            const shouldResolve = await commenter.shouldResolveComment(
+              filename,
+              startLine, 
+              endLine,
+              patch
+            )
+            
+            if (shouldResolve) {
+              // Get the comment IDs from the chains and resolve them
+              const commentIds = extractCommentIds(allChains)
+              for (const commentId of commentIds) {
+                await commenter.resolveComment(commentId)
+              }
+            }
+            
+            if (commentChain !== '') {
+              info(`Found comment chains: ${allChains} for ${filename}`)
+              commentChain = allChains
+            }
           }
         } catch (e: any) {
           warning(
@@ -876,4 +894,11 @@ function parseReview(
   }
 
   return reviews
+}
+
+function extractCommentIds(commentChains: string): number[] {
+  // Extract comment IDs from the comment chains text
+  const idPattern = /Comment ID: (\d+)/g
+  const matches = [...commentChains.matchAll(idPattern)]
+  return matches.map(match => parseInt(match[1]))
 }
