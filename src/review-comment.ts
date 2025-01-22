@@ -19,6 +19,28 @@ const context = github_context
 const repo = context.repo
 const ASK_BOT = '/reviewbot'
 
+interface ReviewComment {
+  id: number
+  body: string
+  position?: number
+  original_position?: number
+  path: string
+}
+
+const resolveComment = async (
+  pullNumber: number, 
+  comment: ReviewComment
+): Promise<void> => {
+  if (!comment.position) {
+    // Position이 없다면 해당 라인이 수정되어 resolved 처리 가능
+    await octokit.pulls.updateReviewComment({
+      ...repo,
+      comment_id: comment.id,
+      body: `${comment.body}\n\n✅ Resolved: This code has been modified.`
+    })
+  }
+}
+
 export const handleReviewComment = async (
   heavyBot: Bot,
   options: Options,
@@ -182,5 +204,17 @@ export const handleReviewComment = async (
     }
   } else {
     info(`Skipped: ${context.eventName} event is from the bot itself`)
+  }
+
+  // Check previous comments that may be resolved
+  const comments = await octokit.pulls.listReviewComments({
+    ...repo,
+    pull_number: context.payload.pull_request.number
+  })
+  
+  for (const comment of comments.data) {
+    if (comment.body.includes(COMMENT_TAG) && !comment.body.includes('✅ Resolved')) {
+      await resolveComment(context.payload.pull_request.number, comment)
+    }
   }
 }
