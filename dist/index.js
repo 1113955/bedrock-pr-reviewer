@@ -5087,7 +5087,7 @@ class Options {
     heavyTokenLimits;
     language;
     constructor(debug, disableReview, disableReleaseNotes, onlyAllowCollaborator, maxFiles = '0', reviewSimpleChanges = false, reviewCommentLGTM = false, pathFilters = null, systemMessage = '', reviewFileDiff = '', bedrockLightModel, bedrockHeavyModel, bedrockModelTemperature = '0.0', bedrockRetries = '3', bedrockTimeoutMS = '120000', bedrockConcurrencyLimit = '6', githubConcurrencyLimit = '6', language = 'en-US') {
-        this.debug = debug;
+        this.debug = true;
         this.disableReview = disableReview;
         this.disableReleaseNotes = disableReleaseNotes;
         this.onlyAllowCollaborator = onlyAllowCollaborator;

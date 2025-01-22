@@ -10,7 +10,8 @@ import {
   RAW_SUMMARY_START_TAG,
   SHORT_SUMMARY_END_TAG,
   SHORT_SUMMARY_START_TAG,
-  SUMMARIZE_TAG
+  SUMMARIZE_TAG,
+  COMMENT_TAG
 } from './commenter'
 import {Inputs} from './inputs'
 import {octokit} from './octokit'
@@ -31,6 +32,45 @@ export const codeReview = async (
   prompts: Prompts
 ): Promise<void> => {
   const commenter: Commenter = new Commenter()
+
+    // Add this section after initial setup
+  const pullNumber = context.payload.pull_request?.number
+  if (!pullNumber) return
+
+  try {
+    // Get all review comments
+    const comments = await octokit.pulls.listReviewComments({
+      owner: repo.owner,
+      repo: repo.repo,
+      pull_number: pullNumber
+    })
+
+    // Filter and resolve non-required comments
+    const nonRequiredComments = comments.data.filter(
+      (comment: {body?: string}) => 
+        comment.body?.includes(COMMENT_TAG) && 
+        !comment.body.startsWith('[필수]')
+    )
+
+    // Resolve comments in parallel with rate limiting
+    const resolvePromises = nonRequiredComments.map(async (comment: {id: number; body?: string}) => {
+      try {
+        await commenter.reviewCommentReply(
+          pullNumber,
+          comment,
+          '✅ Automatically resolved as non-required comment.'
+        )
+        info(`Resolved comment ${comment.id}`)
+      } catch (e) {
+        warning(`Failed to resolve comment ${comment.id}: ${e}`)
+      }
+    })
+
+    await Promise.all(resolvePromises)
+    info(`Resolved ${nonRequiredComments.length} non-required comments`)
+  } catch (e) {
+    warning(`Error processing existing comments: ${e}`)
+  }
 
   const bedrockConcurrencyLimit = pLimit(options.bedrockConcurrencyLimit)
   const githubConcurrencyLimit = pLimit(options.githubConcurrencyLimit)
