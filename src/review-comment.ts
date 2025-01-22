@@ -25,20 +25,41 @@ interface ReviewComment {
   position?: number
   original_position?: number
   path: string
+  line?: number
+  original_line?: number
+  diff_hunk?: string
 }
 
 const resolveComment = async (
   pullNumber: number, 
-  comment: ReviewComment
+  comment: ReviewComment,
+  currentDiff: string
 ): Promise<void> => {
-  if (!comment.position) {
-    // Position이 없다면 해당 라인이 수정되어 resolved 처리 가능
+  // 코멘트가 있는 라인이 변경되었는지 확인
+  const isLineModified = checkLineModified(comment.diff_hunk || '', currentDiff);
+  
+  if (isLineModified) {
     await octokit.pulls.updateReviewComment({
       ...repo,
       comment_id: comment.id,
-      body: `${comment.body}\n\n✅ Resolved: This code has been modified.`
-    })
+      body: `${comment.body}\n\n✅ Resolved: The code has been modified to address this comment.`
+    });
   }
+}
+
+const checkLineModified = (oldDiff: string, newDiff: string): boolean => {
+  const oldLines = oldDiff.split('\n');
+  const newLines = newDiff.split('\n');
+  
+  // 변경된 라인 찾기
+  const oldCode = oldLines.filter(line => line.startsWith('-') || line.startsWith(' '));
+  const newCode = newLines.filter(line => line.startsWith('+') || line.startsWith(' '));
+  
+  return !arraysEqual(oldCode, newCode);
+}
+
+const arraysEqual = (a: string[], b: string[]): boolean => {
+  return a.join('\n') === b.join('\n');
 }
 
 export const handleReviewComment = async (
@@ -210,11 +231,24 @@ export const handleReviewComment = async (
   const comments = await octokit.pulls.listReviewComments({
     ...repo,
     pull_number: context.payload.pull_request.number
-  })
+  });
+
+  const diffAll = await octokit.repos.compareCommits({
+    ...repo,
+    base: context.payload.pull_request.base.sha,
+    head: context.payload.pull_request.head.sha
+  });
   
   for (const comment of comments.data) {
     if (comment.body.includes(COMMENT_TAG) && !comment.body.includes('✅ Resolved')) {
-      await resolveComment(context.payload.pull_request.number, comment)
+      const file = diffAll.data.files?.find(f => f.filename === comment.path);
+      if (file?.patch) {
+        await resolveComment(
+          context.payload.pull_request.number, 
+          comment,
+          file.patch
+        );
+      }
     }
   }
 }
