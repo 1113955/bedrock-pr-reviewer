@@ -46,28 +46,28 @@ export const codeReview = async (
       pull_number: pullNumber
     })
 
-    info(`all comment ${comments.data.length} ai & non-required ${comments.data
-      .filter(
-      (comment: {body?: string}) => 
-        comment.body?.includes(COMMENT_TAG) && 
-        !comment.body.startsWith('[필수]')
-    ).length} ai only ${comments.data
-      .filter(
-      (comment: {body?: string}) => 
-        comment.body?.includes(COMMENT_TAG)
-    ).length} required ${comments.data
-      .filter(
-      (comment: {body?: string}) => 
-        comment.body?.startsWith('[필수]')
-    ).length}`)
+    // 디버깅을 위한 상세 로깅 추가
+    comments.data.forEach((comment, index) => {
+      info(`Comment ${index + 1}:
+        ID: ${comment.id}
+        Body: ${comment.body}
+        Includes COMMENT_TAG: ${comment.body?.includes(COMMENT_TAG)}
+        Starts with [필수]: ${comment.body?.startsWith('[필수]')}
+      `)
+    });
 
-    // Filter and resolve non-required comments
-    const nonRequiredComments = comments.data
-      .filter(
-      (comment: {body?: string}) => 
-        comment.body?.includes(COMMENT_TAG) && 
-        !comment.body.startsWith('[필수]')
+    const aiComments = comments.data.filter(comment => comment.body?.includes(COMMENT_TAG))
+    const requiredComments = comments.data.filter(comment => comment.body?.startsWith('[필수]'))
+    const nonRequiredComments = comments.data.filter(comment => 
+      comment.body?.includes(COMMENT_TAG) && !comment.body?.startsWith('[필수]')
     )
+
+    info(`Comments breakdown:
+      Total comments: ${comments.data.length}
+      AI comments: ${aiComments.length}
+      Required comments: ${requiredComments.length}
+      Non-required AI comments: ${nonRequiredComments.length}
+    `)
 
     // Resolve comments in parallel with rate limiting
     const resolvePromises = nonRequiredComments.map(async (comment: {id: number; body?: string}) => {
