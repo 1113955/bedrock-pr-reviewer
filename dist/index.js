@@ -5900,7 +5900,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         Includes COMMENT_TAG (case insensitive): ${comment.body?.toLowerCase().includes(lib_commenter/* COMMENT_TAG.toLowerCase */.Rs.toLowerCase())}
         Han ai generated comment: ${comment.body?.includes('This is an auto-generated reply by AI reviewer')} 
         Has HTML comment: ${comment.body?.includes('<!--')}
-        Starts with [필수]: ${comment.body?.startsWith('필수]')}
+        Starts with [필수]: ${comment.body?.trimStart().startsWith('[필수]')}
         include with [필수]: ${comment.body?.includes('필수]')}
       `);
         });
@@ -5909,7 +5909,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         const requiredComments = comments.data.filter(comment => comment.body?.startsWith('[필수]'));
         const nonRequiredComments = comments.data.filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
             || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
-            && !comment.body?.includes('[필수]'));
+            && !comment.body?.trimStart().startsWith('[필수]'));
         (0,core.info)(`Comments breakdown:
       Total comments: ${comments.data.length}
       AI comments: ${aiComments.length}

@@ -57,7 +57,7 @@ export const codeReview = async (
         Includes COMMENT_TAG (case insensitive): ${comment.body?.toLowerCase().includes(COMMENT_TAG.toLowerCase())}
         Han ai generated comment: ${comment.body?.includes('This is an auto-generated reply by AI reviewer')} 
         Has HTML comment: ${comment.body?.includes('<!--')}
-        Starts with [필수]: ${comment.body?.startsWith('필수]')}
+        Starts with [필수]: ${comment.body?.trimStart().startsWith('[필수]')}
         include with [필수]: ${comment.body?.includes('필수]')}
       `)
     });
@@ -68,7 +68,7 @@ export const codeReview = async (
     const nonRequiredComments = comments.data.filter(comment => 
     (comment.body?.includes(COMMENT_TAG)
       || comment.body?.includes(COMMENT_REPLY_TAG))
-      && !comment.body?.includes('[필수]')
+      && !comment.body?.trimStart().startsWith('[필수]')
     )
 
     info(`Comments breakdown:
@@ -88,6 +88,7 @@ export const codeReview = async (
           comment,
           '✅ Automatically resolved as non-required comment.'
         )
+
         info(`Resolved comment ${comment.id}`)
       } catch (e) {
         warning(`Failed to resolve comment ${comment.id}: ${e}`)
