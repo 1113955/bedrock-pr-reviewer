@@ -5891,7 +5891,6 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         });
         // Filter and resolve non-required comments
         const nonRequiredComments = comments.data
-            .filter(comment => comment.in_reply_to_id !== null)
             .filter((comment) => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) &&
             !comment.body.startsWith('[필수]'));
         // Resolve comments in parallel with rate limiting
