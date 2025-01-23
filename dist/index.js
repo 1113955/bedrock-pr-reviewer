@@ -5907,10 +5907,12 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         });
         const aiComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs));
         const aiReplyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD));
-        const requiredComments = comments.data.filter(comment => comment.body?.startsWith('[필수]'));
+        const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'));
         const nonRequiredComments = comments.data.filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
             || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
-            && !comment.body?.trimStart().startsWith('[필수]'));
+            && !comment.body?.trimStart().startsWith('[필수]')
+            // 이미 resolved 메시지가 있는 코멘트는 제외
+            && !comment.body?.includes('✅ Automatically resolved as non-required comment.'));
         (0,core.info)(`Comments breakdown:
       Total comments: ${comments.data.length}
       AI comments: ${aiComments.length}
@@ -5974,7 +5976,7 @@ Please avoid making duplicate comments for the same issues that were already rev
         (0,core.info)('Skipped: description contains ignore_keyword');
         return;
     }
-    inputs.systemMessage = options.systemMessage;
+    (0,core.info)(`Existing reviews context: ${existingReviewsContext}`); // 로깅 추가
     inputs.systemMessage = options.systemMessage + existingReviewsContext;
     inputs.reviewFileDiff = options.reviewFileDiff;
     // get SUMMARIZE_TAG message

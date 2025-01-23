@@ -65,11 +65,13 @@ export const codeReview = async (
 
     const aiComments = comments.data.filter(comment => comment.body?.includes(COMMENT_TAG))
     const aiReplyComments = comments.data.filter(comment => comment.body?.includes(COMMENT_REPLY_TAG))
-    const requiredComments = comments.data.filter(comment => comment.body?.startsWith('[필수]'))
+    const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'))
     const nonRequiredComments = comments.data.filter(comment => 
-    (comment.body?.includes(COMMENT_TAG)
-      || comment.body?.includes(COMMENT_REPLY_TAG))
+      (comment.body?.includes(COMMENT_TAG)
+        || comment.body?.includes(COMMENT_REPLY_TAG))
       && !comment.body?.trimStart().startsWith('[필수]')
+      // 이미 resolved 메시지가 있는 코멘트는 제외
+      && !comment.body?.includes('✅ Automatically resolved as non-required comment.')
     )
 
     info(`Comments breakdown:
@@ -111,7 +113,6 @@ Please avoid making duplicate comments for the same issues that were already rev
           comment,
           '✅ Automatically resolved as non-required comment.'
         )
-
         info(`Resolved comment ${comment.id}`)
       } catch (e) {
         warning(`Failed to resolve comment ${comment.id}: ${e}`)
@@ -155,8 +156,9 @@ Please avoid making duplicate comments for the same issues that were already rev
     return
   }
 
-  inputs.systemMessage = options.systemMessage
+  info(`Existing reviews context: ${existingReviewsContext}`);  // 로깅 추가
   inputs.systemMessage = options.systemMessage + existingReviewsContext;
+  
   inputs.reviewFileDiff = options.reviewFileDiff
 
   // get SUMMARIZE_TAG message
