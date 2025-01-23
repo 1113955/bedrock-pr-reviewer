@@ -5877,6 +5877,7 @@ const repo = context.repo;
 const ignoreKeyword = '/reviewbot: ignore';
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
+    var existingReviewsContext = "";
     // Add this section after initial setup
     const pullNumber = context.payload.pull_request?.number;
     if (!pullNumber)
@@ -5917,6 +5918,24 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
       Required comments: ${requiredComments.length}
       Non-required AI comments: ${nonRequiredComments.length}
     `);
+        // Extract existing review comments for system message
+        const existingReviews = comments.data
+            .filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
+            .map(comment => ({
+            path: comment.path,
+            line: comment.line,
+            start_line: comment.start_line,
+            body: comment.body
+        }));
+        // Add existing reviews to system message
+        existingReviewsContext = existingReviews.length > 0
+            ? `\n\nPreviously reviewed comments:
+${existingReviews.map(review => `File: ${review.path}
+Lines: ${review.start_line || review.line}
+Comment: ${review.body}`).join('\n\n')}
+
+Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on new or unaddressed issues.`
+            : '';
         // Resolve comments in parallel with rate limiting
         const resolvePromises = nonRequiredComments.map(async (comment) => {
             try {
@@ -5956,6 +5975,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         return;
     }
     inputs.systemMessage = options.systemMessage;
+    inputs.systemMessage = options.systemMessage + existingReviewsContext;
     inputs.reviewFileDiff = options.reviewFileDiff;
     // get SUMMARIZE_TAG message
     const existingSummarizeCmt = await commenter.findCommentWithTag(lib_commenter/* SUMMARIZE_TAG */.Rp, context.payload.pull_request.number);

@@ -32,6 +32,7 @@ export const codeReview = async (
   prompts: Prompts
 ): Promise<void> => {
   const commenter: Commenter = new Commenter()
+  var existingReviewsContext = ""
 
     // Add this section after initial setup
   const pullNumber = context.payload.pull_request?.number
@@ -78,6 +79,28 @@ export const codeReview = async (
       Required comments: ${requiredComments.length}
       Non-required AI comments: ${nonRequiredComments.length}
     `)
+
+    // Extract existing review comments for system message
+    const existingReviews = comments.data
+      .filter(comment => comment.body?.includes(COMMENT_TAG) || comment.body?.includes(COMMENT_REPLY_TAG))
+      .map(comment => ({
+        path: comment.path,
+        line: comment.line,
+        start_line: comment.start_line,
+        body: comment.body
+      }));
+
+    // Add existing reviews to system message
+    existingReviewsContext = existingReviews.length > 0 
+      ? `\n\nPreviously reviewed comments:
+${existingReviews.map(review => 
+  `File: ${review.path}
+Lines: ${review.start_line || review.line}
+Comment: ${review.body}`
+).join('\n\n')}
+
+Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on new or unaddressed issues.`
+      : '';
 
     // Resolve comments in parallel with rate limiting
     const resolvePromises = nonRequiredComments.map(async (comment: {id: number; body?: string}) => {
@@ -133,6 +156,7 @@ export const codeReview = async (
   }
 
   inputs.systemMessage = options.systemMessage
+  inputs.systemMessage = options.systemMessage + existingReviewsContext;
   inputs.reviewFileDiff = options.reviewFileDiff
 
   // get SUMMARIZE_TAG message
