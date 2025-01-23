@@ -51,20 +51,30 @@ export const codeReview = async (
       info(`Comment ${index + 1}:
         ID: ${comment.id}
         Body: ${comment.body}
-        Includes COMMENT_TAG: ${comment.body?.includes(COMMENT_TAG)}
-        Starts with [필수]: ${comment.body?.startsWith('[필수]')}
+        COMMENT_TAG value: ${COMMENT_TAG}
+        Includes COMMENT_TAG (case sensitive): ${comment.body?.includes(COMMENT_TAG)}
+        Includes COMMENT_TAG (case sensitive): ${comment.body?.includes(COMMENT_REPLY_TAG)}
+        Includes COMMENT_TAG (case insensitive): ${comment.body?.toLowerCase().includes(COMMENT_TAG.toLowerCase())}
+        Han ai generated comment: ${comment.body?.includes('This is an auto-generated reply by AI reviewer')} 
+        Has HTML comment: ${comment.body?.includes('<!--')}
+        Starts with [필수]: ${comment.body?.startsWith('필수]')}
+        include with [필수]: ${comment.body?.includes('필수]')}
       `)
     });
 
     const aiComments = comments.data.filter(comment => comment.body?.includes(COMMENT_TAG))
+    const aiReplyComments = comments.data.filter(comment => comment.body?.includes(COMMENT_REPLY_TAG))
     const requiredComments = comments.data.filter(comment => comment.body?.startsWith('[필수]'))
     const nonRequiredComments = comments.data.filter(comment => 
-      comment.body?.includes(COMMENT_TAG) && !comment.body?.startsWith('[필수]')
+    (comment.body?.includes(COMMENT_TAG)
+      || comment.body?.includes(COMMENT_REPLY_TAG))
+      && !comment.body?.includes('[필수]')
     )
 
     info(`Comments breakdown:
       Total comments: ${comments.data.length}
       AI comments: ${aiComments.length}
+      AI reply comments: ${aiReplyComments.length}
       Required comments: ${requiredComments.length}
       Non-required AI comments: ${nonRequiredComments.length}
     `)
