@@ -67,8 +67,8 @@ export const codeReview = async (
     const aiReplyComments = comments.data.filter(comment => comment.body?.includes(COMMENT_REPLY_TAG))
     const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'))
     const nonRequiredComments = comments.data.filter(comment => 
-      (comment.body?.includes(COMMENT_TAG)
-        || comment.body?.includes(COMMENT_REPLY_TAG))
+    (comment.body?.includes(COMMENT_TAG)
+      || comment.body?.includes(COMMENT_REPLY_TAG))
       && !comment.body?.trimStart().startsWith('[필수]')
       // 이미 resolved 메시지가 있는 코멘트는 제외
       && !comment.body?.includes('✅ Automatically resolved as non-required comment.')
@@ -82,23 +82,13 @@ export const codeReview = async (
       Non-required AI comments: ${nonRequiredComments.length}
     `)
 
-    // Extract existing review comments for system message
-    const existingReviews = comments.data
-      .filter(comment => comment.body?.includes(COMMENT_TAG) || comment.body?.includes(COMMENT_REPLY_TAG))
-      .map(comment => ({
-        path: comment.path,
-        line: comment.line,
-        start_line: comment.start_line,
-        body: comment.body
-      }));
-
     // Add existing reviews to system message
-    existingReviewsContext = existingReviews.length > 0 
+    existingReviewsContext = comments.data.length > 0 
       ? `\n\nPreviously reviewed comments:
-${existingReviews.map(review => 
-  `File: ${review.path}
-Lines: ${review.start_line || review.line}
-Comment: ${review.body}`
+${comments.data.map(comment => 
+  `File: ${comment.path}
+Lines: ${comment.start_line || comment.line}
+Comment: ${comment.body}`
 ).join('\n\n')}
 
 Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on new or unaddressed issues.`
@@ -113,6 +103,7 @@ Please avoid making duplicate comments for the same issues that were already rev
           comment,
           '✅ Automatically resolved as non-required comment.'
         )
+
         info(`Resolved comment ${comment.id}`)
       } catch (e) {
         warning(`Failed to resolve comment ${comment.id}: ${e}`)
@@ -158,7 +149,6 @@ Please avoid making duplicate comments for the same issues that were already rev
 
   info(`Existing reviews context: ${existingReviewsContext}`);  // 로깅 추가
   inputs.systemMessage = options.systemMessage + existingReviewsContext;
-  
   inputs.reviewFileDiff = options.reviewFileDiff
 
   // get SUMMARIZE_TAG message

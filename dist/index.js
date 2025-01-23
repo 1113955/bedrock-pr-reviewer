@@ -5920,21 +5920,12 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
       Required comments: ${requiredComments.length}
       Non-required AI comments: ${nonRequiredComments.length}
     `);
-        // Extract existing review comments for system message
-        const existingReviews = comments.data
-            .filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
-            .map(comment => ({
-            path: comment.path,
-            line: comment.line,
-            start_line: comment.start_line,
-            body: comment.body
-        }));
         // Add existing reviews to system message
-        existingReviewsContext = existingReviews.length > 0
+        existingReviewsContext = comments.data.length > 0
             ? `\n\nPreviously reviewed comments:
-${existingReviews.map(review => `File: ${review.path}
-Lines: ${review.start_line || review.line}
-Comment: ${review.body}`).join('\n\n')}
+${comments.data.map(comment => `File: ${comment.path}
+Lines: ${comment.start_line || comment.line}
+Comment: ${comment.body}`).join('\n\n')}
 
 Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on new or unaddressed issues.`
             : '';
