@@ -91,7 +91,7 @@ Lines: ${comment.start_line || comment.line}
 Comment: ${comment.body}`
 ).join('\n\n')}
 
-Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on new or unaddressed issues.`
+Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on changed code only.`
       : '';
 
     // Resolve comments in parallel with rate limiting
