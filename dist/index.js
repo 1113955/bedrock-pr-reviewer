@@ -3027,6 +3027,46 @@ ${commentBody}`;
         }
         return commentBody;
     }
+    async resolveComment(commentId) {
+        if (context.payload.pull_request == null)
+            return;
+        await _octokit__WEBPACK_IMPORTED_MODULE_2__/* .octokit.pulls.updateReviewComment */ .K.pulls.updateReviewComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: commentId,
+            body: `~${(await this.getComment(commentId)).body}~\n\n**Resolved:** Code was updated.`
+        });
+    }
+    async getComment(commentId) {
+        const response = await _octokit__WEBPACK_IMPORTED_MODULE_2__/* .octokit.pulls.getReviewComment */ .K.pulls.getReviewComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            comment_id: commentId
+        });
+        return response.data;
+    }
+    async shouldResolveComment(filename, startLine, endLine, patch) {
+        // Check if the code in the given line range matches the previous patch
+        const newCode = this.extractCodeFromPatch(patch);
+        const oldComment = await this.getCommentChainsWithinRange(context.payload.pull_request.number, filename, startLine, endLine, COMMENT_REPLY_TAG);
+        if (!oldComment)
+            return false;
+        // If code has changed since the comment was made
+        return newCode.trim() !== this.extractCodeFromComment(oldComment).trim();
+    }
+    extractCodeFromPatch(patch) {
+        // Extract only the code content from patch, ignoring line numbers and markers
+        const lines = patch.split('\n');
+        return lines
+            .filter(line => line.startsWith('+'))
+            .map(line => line.substring(1))
+            .join('\n');
+    }
+    extractCodeFromComment(comment) {
+        // Extract code content from the original comment
+        const codeBlockMatch = comment.match(/```[\s\S]*?```/);
+        return codeBlockMatch ? codeBlockMatch[0].replace(/```/g, '').trim() : '';
+    }
 }
 
 
@@ -5087,7 +5127,7 @@ class Options {
     heavyTokenLimits;
     language;
     constructor(debug, disableReview, disableReleaseNotes, onlyAllowCollaborator, maxFiles = '0', reviewSimpleChanges = false, reviewCommentLGTM = false, pathFilters = null, systemMessage = '', reviewFileDiff = '', bedrockLightModel, bedrockHeavyModel, bedrockModelTemperature = '0.0', bedrockRetries = '3', bedrockTimeoutMS = '120000', bedrockConcurrencyLimit = '6', githubConcurrencyLimit = '6', language = 'en-US') {
-        this.debug = true;
+        this.debug = debug;
         this.disableReview = disableReview;
         this.disableReleaseNotes = disableReleaseNotes;
         this.onlyAllowCollaborator = onlyAllowCollaborator;
@@ -5492,7 +5532,7 @@ $comment
 /* harmony import */ var _inputs__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(6180);
 /* harmony import */ var _octokit__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(3258);
 /* harmony import */ var _tokenizer__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(652);
-
+ // debug 추가
 // eslint-disable-next-line camelcase
 
 
@@ -5503,6 +5543,25 @@ $comment
 const context = _actions_github__WEBPACK_IMPORTED_MODULE_1__.context;
 const repo = context.repo;
 const ASK_BOT = '/reviewbot';
+const resolveComment = async (pullNumber, comment) => {
+    const commenter = new _commenter__WEBPACK_IMPORTED_MODULE_2__/* .Commenter */ .Es();
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Found modified code for comment at ${comment.path}:${comment.line}`);
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)('Previous comment:');
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(comment.body);
+    await commenter.reviewCommentReply(pullNumber, comment, '✅ The code has been modified.');
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.debug)(`Marked comment ${comment.id} as resolved`);
+};
+const checkLineModified = (oldDiff, newDiff) => {
+    const oldLines = oldDiff.split('\n');
+    const newLines = newDiff.split('\n');
+    // 변경된 라인 찾기
+    const oldCode = oldLines.filter(line => line.startsWith('-') || line.startsWith(' '));
+    const newCode = newLines.filter(line => line.startsWith('+') || line.startsWith(' '));
+    return !arraysEqual(oldCode, newCode);
+};
+const arraysEqual = (a, b) => {
+    return a.join('\n') === b.join('\n');
+};
 const handleReviewComment = async (heavyBot, options, prompts) => {
     const commenter = new _commenter__WEBPACK_IMPORTED_MODULE_2__/* .Commenter */ .Es();
     const inputs = new _inputs__WEBPACK_IMPORTED_MODULE_5__/* .Inputs */ .k();
@@ -5622,6 +5681,20 @@ const handleReviewComment = async (heavyBot, options, prompts) => {
     }
     else {
         (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Skipped: ${context.eventName} event is from the bot itself`);
+    }
+    // Check previous comments for modifications
+    const comments = await _octokit__WEBPACK_IMPORTED_MODULE_3__/* .octokit.pulls.listReviewComments */ .K.pulls.listReviewComments({
+        ...repo,
+        pull_number: context.payload.pull_request.number
+    });
+    (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)('Checking for resolved comments...');
+    for (const comment of comments.data) {
+        if (comment.body.includes(_commenter__WEBPACK_IMPORTED_MODULE_2__/* .COMMENT_TAG */ .Rs) && !comment.body.includes('✅')) {
+            if (!comment.position) { // position이 없다면 해당 라인이 수정됨
+                (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Found modified code at ${comment.path}`);
+                await resolveComment(context.payload.pull_request.number, comment);
+            }
+        }
     }
 };
 
@@ -5804,6 +5877,42 @@ const repo = context.repo;
 const ignoreKeyword = '/reviewbot: ignore';
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
+    // Add this section after initial setup
+    const pullNumber = context.payload.pull_request?.number;
+    if (!pullNumber)
+        return;
+    (0,core.info)(`codeReview pullNumber ${pullNumber}`);
+    try {
+        // Get all review comments
+        const comments = await octokit/* octokit.pulls.listReviewComments */.K.pulls.listReviewComments({
+            owner: repo.owner,
+            repo: repo.repo,
+            pull_number: pullNumber
+        });
+        // Filter and resolve non-required comments
+        const nonRequiredComments = comments.data;
+        //   .filter(
+        //   (comment: {body?: string}) => 
+        //     comment.body?.includes(COMMENT_TAG) && 
+        //     !comment.body.startsWith('[필수]')
+        // )
+        // Resolve comments in parallel with rate limiting
+        const resolvePromises = nonRequiredComments.map(async (comment) => {
+            try {
+                (0,core.info)(`Resolving comment ${comment.id}, ${comment.body}`);
+                await commenter.reviewCommentReply(pullNumber, comment, '✅ Automatically resolved as non-required comment.');
+                (0,core.info)(`Resolved comment ${comment.id}`);
+            }
+            catch (e) {
+                (0,core.warning)(`Failed to resolve comment ${comment.id}: ${e}`);
+            }
+        });
+        await Promise.all(resolvePromises);
+        (0,core.info)(`Resolved ${nonRequiredComments.length} non-required comments`);
+    }
+    catch (e) {
+        (0,core.warning)(`Error processing existing comments: ${e}`);
+    }
     const bedrockConcurrencyLimit = pLimit(options.bedrockConcurrencyLimit);
     const githubConcurrencyLimit = pLimit(options.githubConcurrencyLimit);
     if (context.eventName !== 'pull_request' &&
@@ -6063,7 +6172,7 @@ ${filterIgnoredFiles.length > 0
             skippedFiles.push(filename);
         }
     }
-    const summaries = (await Promise.all(summaryPromises)).filter(summary => summary !== null);
+    const summaries = (await Promise.all(summaryPromises)).filter((summary) => summary !== null);
     if (summaries.length > 0) {
         const batchSize = 10;
         // join summaries into one in the batches of batchSize
@@ -6188,9 +6297,20 @@ ${summariesFailed.length > 0
                 let commentChain = '';
                 try {
                     const allChains = await commenter.getCommentChainsWithinRange(context.payload.pull_request.number, filename, startLine, endLine, lib_commenter/* COMMENT_REPLY_TAG */.aD);
+                    // Check if previous comments should be resolved
                     if (allChains.length > 0) {
-                        (0,core.info)(`Found comment chains: ${allChains} for ${filename}`);
-                        commentChain = allChains;
+                        const shouldResolve = await commenter.shouldResolveComment(filename, startLine, endLine, patch);
+                        if (shouldResolve) {
+                            // Get the comment IDs from the chains and resolve them
+                            const commentIds = extractCommentIds(allChains);
+                            for (const commentId of commentIds) {
+                                await commenter.resolveComment(commentId);
+                            }
+                        }
+                        if (commentChain !== '') {
+                            (0,core.info)(`Found comment chains: ${allChains} for ${filename}`);
+                            commentChain = allChains;
+                        }
                     }
                 }
                 catch (e) {
@@ -6435,6 +6555,12 @@ patches) {
         return [];
     }
     return reviews;
+}
+function extractCommentIds(commentChains) {
+    // Extract comment IDs from the comment chains text
+    const idPattern = /Comment ID: (\d+)/g;
+    const matches = [...commentChains.matchAll(idPattern)];
+    return matches.map(match => parseInt(match[1]));
 }
 
 
