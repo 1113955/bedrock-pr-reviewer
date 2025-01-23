@@ -5889,9 +5889,13 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
             repo: repo.repo,
             pull_number: pullNumber
         });
+        (0,core.info)(`all comment ${comments.data.length} ai & non-required ${comments.data
+            .filter((comment) => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) &&
+            !comment.body.startsWith('[필수]')).length} ai only ${comments.data
+            .filter((comment) => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)).length} required ${comments.data
+            .filter((comment) => comment.body?.startsWith('[필수]')).length}`);
         // Filter and resolve non-required comments
         const nonRequiredComments = comments.data
-            .filter(comment => comment.in_reply_to_id !== null)
             .filter((comment) => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) &&
             !comment.body.startsWith('[필수]'));
         // Resolve comments in parallel with rate limiting

@@ -46,6 +46,21 @@ export const codeReview = async (
       pull_number: pullNumber
     })
 
+    info(`all comment ${comments.data.length} ai & non-required ${comments.data
+      .filter(
+      (comment: {body?: string}) => 
+        comment.body?.includes(COMMENT_TAG) && 
+        !comment.body.startsWith('[필수]')
+    ).length} ai only ${comments.data
+      .filter(
+      (comment: {body?: string}) => 
+        comment.body?.includes(COMMENT_TAG)
+    ).length} required ${comments.data
+      .filter(
+      (comment: {body?: string}) => 
+        comment.body?.startsWith('[필수]')
+    ).length}`)
+
     // Filter and resolve non-required comments
     const nonRequiredComments = comments.data
       .filter(
