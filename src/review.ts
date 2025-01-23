@@ -48,7 +48,6 @@ export const codeReview = async (
 
     // Filter and resolve non-required comments
     const nonRequiredComments = comments.data
-      .filter(comment => comment.in_reply_to_id !== null)
       .filter(
       (comment: {body?: string}) => 
         comment.body?.includes(COMMENT_TAG) && 
