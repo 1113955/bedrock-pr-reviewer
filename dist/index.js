@@ -3046,13 +3046,119 @@ ${commentBody}`;
         return response.data;
     }
     async shouldResolveComment(filename, startLine, endLine, patch) {
-        // Check if the code in the given line range matches the previous patch
-        const newCode = this.extractCodeFromPatch(patch);
-        const oldComment = await this.getCommentChainsWithinRange(context.payload.pull_request.number, filename, startLine, endLine, COMMENT_REPLY_TAG);
-        if (!oldComment)
+        const existingComments = await this.getCommentChainsWithinRange(context.payload.pull_request.number, filename, startLine, endLine, COMMENT_REPLY_TAG);
+        if (!existingComments)
             return false;
-        // If code has changed since the comment was made
-        return newCode.trim() !== this.extractCodeFromComment(oldComment).trim();
+        const similarityThreshold = 0.7;
+        const newComment = this.extractMainPoints(patch);
+        const oldComments = this.extractMainPoints(existingComments);
+        const similarity = await this.calculateSimilarity(newComment, oldComments);
+        return similarity > similarityThreshold;
+    }
+    extractMainPoints(text) {
+        // 1. HTML 태그 및 마크다운 제거
+        const cleanText = text
+            .replace(/<[^>]*>/g, '') // HTML 태그 제거
+            .replace(/```[\s\S]*?```/g, '') // 코드 블록 제거
+            .replace(/`.*?`/g, '') // 인라인 코드 제거
+            .replace(/\[.*?\]/g, '') // 마크다운 링크 제거
+            .replace(/\(.*?\)/g, '') // 괄호 내용 제거
+            .replace(/[#*_~]/g, ''); // 마크다운 서식 제거
+        // 2. 주요 문장 추출
+        const sentences = cleanText
+            .split(/[.!?]/)
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        // 3. 핵심 문장만 선택 (코드 리뷰 관련 키워드 포함된 문장)
+        const relevantSentences = sentences.filter(sentence => {
+            const keywords = [
+                'widget', 'component', 'function', 'method', 'class',
+                'implement', 'change', 'update', 'fix', 'add',
+                'performance', 'security', 'bug', 'feature',
+                'validation', 'error', 'handle', 'check'
+            ];
+            return keywords.some(keyword => sentence.toLowerCase().includes(keyword));
+        });
+        return relevantSentences;
+    }
+    async calculateSimilarity(newPoints, oldPoints) {
+        try {
+            // 전체 문맥을 하나의 문단으로 합침
+            const newText = this.normalizeText(newPoints.join('. '));
+            const oldText = this.normalizeText(oldPoints.join('. '));
+            // 텍스트를 핵심 키워드로 변환
+            const newKeywords = this.extractKeywords(newText);
+            const oldKeywords = this.extractKeywords(oldText);
+            // 키워드 기반 유사도 계산
+            return this.calculateKeywordSimilarity(newKeywords, oldKeywords);
+        }
+        catch (error) {
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.warning)(`Failed to calculate semantic similarity: ${error}`);
+            return this.calculateJaccardSimilarity(newPoints, oldPoints);
+        }
+    }
+    normalizeText(text) {
+        return text
+            .toLowerCase()
+            .replace(/[^\w\s]/g, ' ') // 특수문자 제거
+            .replace(/\s+/g, ' ') // 연속된 공백 제거
+            .trim();
+    }
+    extractKeywords(text) {
+        const commonWords = new Set([
+            'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
+            'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at'
+        ]);
+        return text
+            .split(' ')
+            .filter(word => word.length > 2 && // 짧은 단어 제외
+            !commonWords.has(word) && // 일반적인 단어 제외
+            !word.match(/^\d+$/) // 숫자만 있는 단어 제외
+        );
+    }
+    calculateKeywordSimilarity(keywords1, keywords2) {
+        const intersectionSize = keywords1.filter(k1 => keywords2.some(k2 => this.isSimilarKeyword(k1, k2))).length;
+        return (2.0 * intersectionSize) / (keywords1.length + keywords2.length);
+    }
+    isSimilarKeyword(word1, word2) {
+        // 1. 정확히 동일한 경우
+        if (word1 === word2)
+            return true;
+        // 2. 하나가 다른 것을 포함하는 경우
+        if (word1.includes(word2) || word2.includes(word1))
+            return true;
+        // 3. Levenshtein 거리로 유사도 체크
+        const distance = this.levenshteinDistance(word1, word2);
+        const maxLength = Math.max(word1.length, word2.length);
+        return distance <= Math.min(2, Math.floor(maxLength * 0.3));
+    }
+    levenshteinDistance(str1, str2) {
+        const m = str1.length;
+        const n = str2.length;
+        const dp = Array.from({ length: m + 1 }, () => Array.from({ length: n + 1 }, () => 0));
+        for (let i = 0; i <= m; i++)
+            dp[i][0] = i;
+        for (let j = 0; j <= n; j++)
+            dp[0][j] = j;
+        for (let i = 1; i <= m; i++) {
+            for (let j = 1; j <= n; j++) {
+                if (str1[i - 1] === str2[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                }
+                else {
+                    dp[i][j] = 1 + Math.min(dp[i - 1][j], // deletion
+                    dp[i][j - 1], // insertion
+                    dp[i - 1][j - 1] // substitution
+                    );
+                }
+            }
+        }
+        return dp[m][n];
+    }
+    calculateJaccardSimilarity(newPoints, oldPoints) {
+        const intersection = newPoints.filter(point => oldPoints.some(oldPoint => oldPoint.includes(point) || point.includes(oldPoint)));
+        const union = Array.from(new Set([...newPoints, ...oldPoints]));
+        return intersection.length / union.length;
     }
     extractCodeFromPatch(patch) {
         // Extract only the code content from patch, ignoring line numbers and markers
@@ -5135,7 +5241,8 @@ class Options {
         this.reviewSimpleChanges = reviewSimpleChanges;
         this.reviewCommentLGTM = reviewCommentLGTM;
         this.pathFilters = new PathFilter(pathFilters);
-        this.systemMessage = systemMessage;
+        const defaultSystemMessage = `You are \`/reviewbot\` (aka \`github-actions[bot]\`)...`; // action.yml의 default 내용
+        this.systemMessage = systemMessage ? `${defaultSystemMessage}\n\n${systemMessage}` : defaultSystemMessage;
         this.reviewFileDiff = reviewFileDiff;
         this.bedrockLightModel = bedrockLightModel;
         this.bedrockHeavyModel = bedrockHeavyModel;

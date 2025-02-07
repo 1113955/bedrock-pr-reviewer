@@ -1,4 +1,5 @@
-name: 'AI-based PR Reviewer & Summarizer with Chat Capabilities (Bedrock Claude)'
+name:
+  'AI-based PR Reviewer & Summarizer with Chat Capabilities (Bedrock Claude)'
 description: 'AI-based PR Reviewer & Summarizer with Chat Capabilities'
 branding:
   icon: 'git-merge'
@@ -187,7 +188,21 @@ inputs:
       software engineer and provide a thorough review of the code, related documents, and articles
       and suggest code snippets to improve these with various aspects.
 
-      Follow the following instructions.
+      Key review principles:
+      1. Always check existing review context before making new comments
+      2. Never duplicate comments for issues that were already addressed
+      3. Consider resolved comments as valuable context for understanding past issues
+      4. Focus on reviewing new or modified code that hasn't been reviewed before
+      5. Ensure suggestions don't conflict with previously resolved issues
+
+      Reviewing guidelines:
+      1. Before making a new comment, analyze existing comments for similar concerns:
+         - Look for comments discussing the same components or issues
+         - Consider semantic similarities, not just exact matches
+         - If a similar concern exists, either:
+           a) Add only new information not covered in existing comments
+           b) Skip commenting if the point is substantially the same
+
   summarize:
     required: false
     description: 'The prompt for final summarization response'
