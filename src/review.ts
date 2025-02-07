@@ -66,6 +66,38 @@ export const codeReview = async (
     const aiComments = comments.data.filter(comment => comment.body?.includes(COMMENT_TAG))
     const aiReplyComments = comments.data.filter(comment => comment.body?.includes(COMMENT_REPLY_TAG))
     const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'))
+    
+    // Add handling for AI review comments with no replies
+    const aiOnlyComments = comments.data.filter(comment => 
+      comment.body?.includes(COMMENT_TAG) &&
+      !comment.body?.includes(COMMENT_REPLY_TAG) && 
+      !comment.body?.trimStart().startsWith('[필수]')
+    );
+
+    // Delete AI comments that have no replies
+    const deletePromises = aiOnlyComments.map(async (comment) => {
+      try {
+        const replies = comments.data.filter(reply => 
+          reply.in_reply_to_id === comment.id
+        );
+
+        if (replies.length === 0) {
+          info(`Deleting unused AI comment ${comment.id}`);
+          await octokit.pulls.deleteReviewComment({
+            owner: repo.owner,
+            repo: repo.repo,
+            comment_id: comment.id
+          });
+        }
+      } catch (e) {
+        warning(`Failed to delete comment ${comment.id}: ${e}`);
+      }
+    });
+
+    await Promise.all(deletePromises);
+    info(`Processed ${aiOnlyComments.length} AI-only comments for cleanup`);
+
+    // Continue with existing non-required comments handling...
     const nonRequiredComments = await Promise.all(comments.data
       .filter(comment => 
         (comment.body?.includes(COMMENT_TAG)

@@ -5908,6 +5908,30 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         const aiComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs));
         const aiReplyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD));
         const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'));
+        // Add handling for AI review comments with no replies
+        const aiOnlyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) &&
+            !comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD) &&
+            !comment.body?.trimStart().startsWith('[필수]'));
+        // Delete AI comments that have no replies
+        const deletePromises = aiOnlyComments.map(async (comment) => {
+            try {
+                const replies = comments.data.filter(reply => reply.in_reply_to_id === comment.id);
+                if (replies.length === 0) {
+                    (0,core.info)(`Deleting unused AI comment ${comment.id}`);
+                    await octokit/* octokit.pulls.deleteReviewComment */.K.pulls.deleteReviewComment({
+                        owner: repo.owner,
+                        repo: repo.repo,
+                        comment_id: comment.id
+                    });
+                }
+            }
+            catch (e) {
+                (0,core.warning)(`Failed to delete comment ${comment.id}: ${e}`);
+            }
+        });
+        await Promise.all(deletePromises);
+        (0,core.info)(`Processed ${aiOnlyComments.length} AI-only comments for cleanup`);
+        // Continue with existing non-required comments handling...
         const nonRequiredComments = await Promise.all(comments.data
             .filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
             || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
