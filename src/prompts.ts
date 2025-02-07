@@ -86,11 +86,14 @@ $short_summary
 Input: New hunks annotated with line numbers and old hunks (replaced code). Hunks represent incomplete code fragments. Example input is in <example_input> tag below.
 Additional Context: <pull_request_title>, <pull_request_description>, <pull_request_changes> and comment chains. 
 Task: Review new hunks for substantive issues using provided context and respond with comments if necessary.
-Output: Review comments in markdown with exact line number ranges in new hunks. Start and end line numbers must be within the same hunk. For single-line comments, start=end line number. Must use JSON output format in <example_output> tag below.
-Use fenced code blocks using the relevant language identifier where applicable.
-Don't annotate code snippets with line numbers. Format and indent code correctly.
-Do not use \`suggestion\` code blocks.
-For fixes, use \`diff\` code blocks, marking changes with \`+\` or \`-\`. The line number range for comments with fix snippets must exactly match the range to replace in the new hunk.
+Output: Review comments in markdown with exact line number ranges in new hunks.
+
+Important guidelines:
+1. Check the existing review context first and avoid making duplicate comments
+2. Consider both open and resolved comments to understand what issues were already addressed
+3. If a similar issue was previously resolved, only comment if the current code introduces the same problem in a new way
+4. Focus on new or modified code sections that haven't been reviewed before
+5. When suggesting improvements, ensure they don't conflict with previously resolved issues
 
 $review_file_diff
 
