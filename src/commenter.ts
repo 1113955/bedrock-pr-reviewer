@@ -850,40 +850,35 @@ ${commentBody}`
   }
 
   private extractMainPoints(text: string): string[] {
-    // 1. HTML 태그 및 마크다운 제거
-    const cleanText = text
-      .replace(/<[^>]*>/g, '')          // HTML 태그 제거
-      .replace(/```[\s\S]*?```/g, '')   // 코드 블록 제거
-      .replace(/`.*?`/g, '')            // 인라인 코드 제거
-      .replace(/\[.*?\]/g, '')          // 마크다운 링크 제거
-      .replace(/\(.*?\)/g, '')          // 괄호 내용 제거
-      .replace(/[#*_~]/g, '')           // 마크다운 서식 제거
-      
-    // 2. 주요 문장 추출
+    // 1. 코드 블록 제거 후 텍스트 정제
+    const cleanText = this.removeCodeBlocks(text)
+      .replace(/<[^>]*>/g, '')        // HTML 태그 제거
+      .replace(/`.*?`/g, '')          // 인라인 코드 제거
+      .replace(/\[.*?\]/g, '')        // 마크다운 링크 제거
+      .replace(/\(.*?\)/g, '')        // 괄호 내용 제거
+      .replace(/[#*_~]/g, '')         // 마크다운 서식 제거
+      .replace(/<!--.*?-->/g, '')     // HTML 코멘트 제거
+    
+    // 2. 문장 분리 및 필터링
     const sentences = cleanText
       .split(/[.!?]/)
       .map(s => s.trim())
       .filter(s => s.length > 0);
 
-    // 3. 핵심 문장만 선택 (코드 리뷰 관련 키워드 포함된 문장)
-    const relevantSentences = sentences.filter(sentence => {
-      const keywords = [
-        'widget', 'component', 'function', 'method', 'class',
-        'implement', 'change', 'update', 'fix', 'add',
-        'performance', 'security', 'bug', 'feature',
-        'validation', 'error', 'handle', 'check'
-      ];
-      return keywords.some(keyword => 
-        sentence.toLowerCase().includes(keyword)
-      );
-    });
+    return sentences;
+  }
 
-    return relevantSentences;
+  private removeCodeBlocks(text: string): string {
+    // 다중 라인 코드 블록 제거
+    const withoutCodeBlocks = text.replace(/```[\s\S]*?```/g, '');
+    
+    // 단일 라인 코드 예시 제거 (예: `code`)
+    return withoutCodeBlocks.replace(/`[^`]+`/g, '');
   }
 
   private async calculateSimilarity(newPoints: string[], oldPoints: string[]): Promise<number> {
     try {
-      // 전체 문맥을 하나의 문단으로 합침
+      // 전체 문맥을 하나의 문단으로 합침 (코드 블록 제외)
       const newText = this.normalizeText(newPoints.join('. '));
       const oldText = this.normalizeText(oldPoints.join('. '));
       
@@ -891,7 +886,12 @@ ${commentBody}`
       const newKeywords = this.extractKeywords(newText);
       const oldKeywords = this.extractKeywords(oldText);
       
-      // 키워드 기반 유사도 계산
+      info(`Comparing text similarity:
+        New text: ${newText}
+        Old text: ${oldText}
+        New keywords: ${newKeywords.join(', ')}
+        Old keywords: ${oldKeywords.join(', ')}`);
+      
       return this.calculateKeywordSimilarity(newKeywords, oldKeywords);
     } catch (error) {
       warning(`Failed to calculate semantic similarity: ${error}`);
