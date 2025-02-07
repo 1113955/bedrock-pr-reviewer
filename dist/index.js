@@ -5908,27 +5908,30 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         const aiComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs));
         const aiReplyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD));
         const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'));
-        const nonRequiredComments = comments.data.filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
+        const nonRequiredComments = await Promise.all(comments.data
+            .filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
             || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
-            && !comment.body?.trimStart().startsWith('[필수]')
-            // 이미 resolved 메시지가 있는 코멘트는 제외
-            && !comment.body?.includes('✅ Automatically resolved as non-required comment.'));
+            && !comment.body?.trimStart().startsWith('[필수]'))
+            .map(async (comment) => {
+            // Get entire comment chain for this comment
+            const { chain } = await commenter.getCommentChain(pullNumber, comment);
+            // Check if any comment in the chain includes the resolved message
+            const isAlreadyResolved = chain.includes('✅ Automatically resolved as non-required comment.');
+            return isAlreadyResolved ? null : comment;
+        }))
+            .then(results => results.filter((comment) => comment !== null));
         (0,core.info)(`Comments breakdown:
       Total comments: ${comments.data.length}
       AI comments: ${aiComments.length}
       AI reply comments: ${aiReplyComments.length}
       Required comments: ${requiredComments.length}
-      Non-required AI comments: ${nonRequiredComments.length}
+      Non-required AI comments to resolve: ${nonRequiredComments.length}
     `);
         // Add existing reviews to system message
         existingReviewsContext = comments.data.length > 0
-            ? `\n\nPreviously reviewed comments:
-${comments.data.map(comment => `File: ${comment.path}
-Lines: ${comment.start_line || comment.line}
-Comment: ${comment.body}`).join('\n\n')}
-
-Please avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on changed code only.`
+            ? `\\n\\nPreviously reviewed comments:\\n${comments.data.map(comment => `File: ${comment.path}\\nLines: ${comment.start_line || comment.line}\\nComment: ${comment.body?.replace(/\n/g, '\\n').replace(/\t/g, '\\t')}`).join('\\n\\n')}\\n\\nPlease avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on changed code only.`
             : '';
+        (0,core.info)(`Existing reviews context (escaped): ${existingReviewsContext}`);
         // Resolve comments in parallel with rate limiting
         const resolvePromises = nonRequiredComments.map(async (comment) => {
             try {
