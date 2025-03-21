@@ -108,6 +108,10 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
     const testFilePath = path.join(dir, `${fileName}_test.dart`).replace(/^lib/, 'test');
     
     try {
+      // 디렉토리가 존재하는지 확인하고, 없으면 생성
+      const testDir = path.dirname(testFilePath);
+      await fs.promises.mkdir(testDir, { recursive: true });
+
       // 로컬에 파일 저장 (선택 사항)
       await fs.promises.writeFile(testFilePath, testCode);
       info(`Test file saved locally: ${testFilePath}`);
