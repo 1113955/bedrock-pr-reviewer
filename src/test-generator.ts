@@ -34,6 +34,8 @@ export class TestGenerator {
   // 테스트 생성을 위한 프롬프트 작성
   private createBlocTestPrompt(filePath: string, fileContent: string): string {
     return `
+IMPORTANT: Regardless of the language setting, you must provide the actual Dart code in English syntax.
+
 You are an expert in Flutter development, specifically in implementing the Bloc pattern and writing comprehensive unit tests. Your task is to create a complete set of unit tests for a given Flutter Bloc file.
 
 Here is the content of the Flutter Bloc file:
@@ -59,7 +61,7 @@ After your analysis, generate comprehensive unit tests that meet the following c
 4. Utilize the bloc_test package for efficient Bloc testing.
 5. Follow best practices for testing the Bloc pattern in Flutter.
 
-Your output should be valid Dart code for a complete test file, without any additional explanations. Include necessary imports, test groups, and individual test cases. Ensure that your tests are thorough and would provide good coverage of the Bloc's functionality.
+Your output MUST be valid Dart code for a complete test file, without any additional explanations. Include necessary imports, test groups, and individual test cases. Ensure that your tests are thorough and would provide good coverage of the Bloc's functionality.
 
 Here's an example of the structure your output should follow:
 
@@ -86,8 +88,8 @@ void main() {
 }
 \`\`\`
 
-Remember to replace placeholder names with actual names from the provided Bloc file and to include all necessary test cases.
-    `;
+IMPORTANT: You must return ONLY the Dart code without any explanations or translations in other languages. Do NOT translate variable names or code syntax - keep all code as standard Dart.
+`;
   }
 
   // 응답에서 테스트 코드만 추출
