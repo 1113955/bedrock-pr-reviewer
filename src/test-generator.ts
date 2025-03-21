@@ -4,6 +4,8 @@ import { Bot } from './bot';
 import { info } from '@actions/core';
 import { TokenLimits } from './limits';
 import { debug } from 'console';
+import { octokit } from './octokit';
+import { context as github_context } from '@actions/github';
 
 export class TestGenerator {
   private bot: Bot;
@@ -99,19 +101,56 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
     return match ? match[1].trim() : response.trim();
   }
 
-  // 테스트 파일 저장
-  async saveTestFile(filePath: string, testCode: string): Promise<string> {
+  // 테스트 파일을 저장하고 PR에 코멘트와 함께 추가
+  async saveTestFile(filePath: string, testCode: string): Promise<{ testFilePath: string, testCode: string }> {
     const dir = path.dirname(filePath);
     const fileName = path.basename(filePath, path.extname(filePath));
     const testFilePath = path.join(dir, `${fileName}_test.dart`);
     
     try {
+      // 로컬에 파일 저장 (선택 사항)
       await fs.promises.writeFile(testFilePath, testCode);
-      info(`Test file saved: ${testFilePath}`);
-      return testFilePath;
+      info(`Test file saved locally: ${testFilePath}`);
+      
+      // PR에 파일 변경으로 추가
+      try {
+        const context = github_context;
+        if (context.payload.pull_request) {
+          const repo = context.repo;
+          
+          // 현재 브랜치의 최신 커밋 정보 가져오기
+          const branchRef = `heads/${context.payload.pull_request.head.ref}`;
+          const refData = await octokit.git.getRef({
+            owner: repo.owner,
+            repo: repo.repo,
+            ref: branchRef.replace('refs/', '')
+          });
+          
+          // 파일 내용을 base64로 인코딩하여 저장
+          const fileContent = Buffer.from(testCode).toString('base64');
+          
+          // PR 브랜치에 파일 추가
+          await octokit.repos.createOrUpdateFileContents({
+            owner: repo.owner,
+            repo: repo.repo,
+            path: testFilePath,
+            message: `자동 생성된 유닛 테스트: ${fileName}_test.dart`,
+            content: fileContent,
+            branch: context.payload.pull_request.head.ref,
+            sha: refData.data.object.sha
+          });
+          
+          info(`Test file added to PR: ${testFilePath}`);
+        }
+      } catch (prError) {
+        info(`Note: Could not add test file to PR directly: ${prError}`);
+        info('The test code will only be added as a comment.');
+      }
+      
+      return { testFilePath, testCode };
     } catch (error) {
       info(`Error saving test file: ${error}`);
-      throw error;
+      return { testFilePath, testCode }; // 에러가 발생해도 코드는 반환
     }
   }
 }

@@ -5999,9 +5999,12 @@ var tokenizer = __nccwpck_require__(652);
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: external "path"
 var external_path_ = __nccwpck_require__(1017);
+var external_path_default = /*#__PURE__*/__nccwpck_require__.n(external_path_);
 ;// CONCATENATED MODULE: external "console"
 const external_console_namespaceObject = require("console");
 ;// CONCATENATED MODULE: ./lib/test-generator.js
+
+
 
 
 
@@ -6094,19 +6097,51 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
         const match = response.match(codeBlockRegex);
         return match ? match[1].trim() : response.trim();
     }
-    // 테스트 파일 저장
+    // 테스트 파일을 저장하고 PR에 코멘트와 함께 추가
     async saveTestFile(filePath, testCode) {
         const dir = external_path_.dirname(filePath);
         const fileName = external_path_.basename(filePath, external_path_.extname(filePath));
         const testFilePath = external_path_.join(dir, `${fileName}_test.dart`);
         try {
+            // 로컬에 파일 저장 (선택 사항)
             await external_fs_.promises.writeFile(testFilePath, testCode);
-            (0,core.info)(`Test file saved: ${testFilePath}`);
-            return testFilePath;
+            (0,core.info)(`Test file saved locally: ${testFilePath}`);
+            // PR에 파일 변경으로 추가
+            try {
+                const context = github.context;
+                if (context.payload.pull_request) {
+                    const repo = context.repo;
+                    // 현재 브랜치의 최신 커밋 정보 가져오기
+                    const branchRef = `heads/${context.payload.pull_request.head.ref}`;
+                    const refData = await octokit/* octokit.git.getRef */.K.git.getRef({
+                        owner: repo.owner,
+                        repo: repo.repo,
+                        ref: branchRef.replace('refs/', '')
+                    });
+                    // 파일 내용을 base64로 인코딩하여 저장
+                    const fileContent = Buffer.from(testCode).toString('base64');
+                    // PR 브랜치에 파일 추가
+                    await octokit/* octokit.repos.createOrUpdateFileContents */.K.repos.createOrUpdateFileContents({
+                        owner: repo.owner,
+                        repo: repo.repo,
+                        path: testFilePath,
+                        message: `자동 생성된 유닛 테스트: ${fileName}_test.dart`,
+                        content: fileContent,
+                        branch: context.payload.pull_request.head.ref,
+                        sha: refData.data.object.sha
+                    });
+                    (0,core.info)(`Test file added to PR: ${testFilePath}`);
+                }
+            }
+            catch (prError) {
+                (0,core.info)(`Note: Could not add test file to PR directly: ${prError}`);
+                (0,core.info)('The test code will only be added as a comment.');
+            }
+            return { testFilePath, testCode };
         }
         catch (error) {
             (0,core.info)(`Error saving test file: ${error}`);
-            throw error;
+            return { testFilePath, testCode }; // 에러가 발생해도 코드는 반환
         }
     }
 }
@@ -6125,6 +6160,7 @@ var external_crypto_ = __nccwpck_require__(6113);
 
 
  // 해시 계산을 위한 모듈 import
+
 // eslint-disable-next-line camelcase
 const context = github.context;
 const repo = context.repo;
@@ -6434,7 +6470,7 @@ ${hunks.oldHunk}
                 // 새로운 테스트 코드 생성 및 코멘트 추가
                 const testCode = await testGenerator.generateBlocTest(filename, fileContent);
                 if (testCode) {
-                    await addTestCodeComment(filename, testCode, fileHash);
+                    await addTestCodeComment(filename, testCode, fileHash, testGenerator);
                 }
             }
             else {
@@ -6920,9 +6956,13 @@ function extractCommentIds(commentChains) {
     const matches = [...commentChains.matchAll(idPattern)];
     return matches.map(match => parseInt(match[1]));
 }
-const addTestCodeComment = async (filePath, testCode, fileHash) => {
+const addTestCodeComment = async (filePath, testCode, fileHash, testGenerator) => {
     const unitTestTag = generateUnitTestTag(filePath, fileHash);
-    const comment = `
+    try {
+        // 테스트 코드를 파일로 저장 및 PR에 추가 시도
+        const savedTest = await testGenerator.saveTestFile(filePath, testCode);
+        const testFilePath = savedTest.testFilePath;
+        const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
 이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
@@ -6931,18 +6971,22 @@ const addTestCodeComment = async (filePath, testCode, fileHash) => {
 ${testCode}
 \`\`\`
 
-이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+이 테스트 코드를 새 파일(${external_path_default().basename(testFilePath)})로 저장하거나 필요에 맞게 수정하여 사용하세요.
 
 ${unitTestTag}
 `;
-    (0,external_console_namespaceObject.debug)(`Adding test code comment to ${filePath}: ${comment}`);
-    (0,external_console_namespaceObject.debug)(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
-    await octokit/* octokit.issues.createComment */.K.issues.createComment({
-        owner: repo.owner,
-        repo: repo.repo,
-        issue_number: context.payload.pull_request?.number || 0,
-        body: comment
-    });
+        (0,external_console_namespaceObject.debug)(`Adding test code comment to ${filePath}: ${comment}`);
+        (0,external_console_namespaceObject.debug)(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
+        await octokit/* octokit.issues.createComment */.K.issues.createComment({
+            owner: repo.owner,
+            repo: repo.repo,
+            issue_number: context.payload.pull_request?.number || 0,
+            body: comment
+        });
+    }
+    catch (error) {
+        (0,core.warning)(`Error adding test code comment: ${error}`);
+    }
 };
 // 정확한 파일 경로에 대한 테스트 코멘트를 찾는 함수
 async function findExistingUnitTestComment(filename) {

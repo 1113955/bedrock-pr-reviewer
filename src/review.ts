@@ -21,6 +21,7 @@ import {getTokenCount} from './tokenizer'
 import { TestGenerator } from './test-generator';
 import { debug } from 'console'
 import * as crypto from 'crypto'; // 해시 계산을 위한 모듈 import
+import path from 'path'
 
 // eslint-disable-next-line camelcase
 const context = github_context
@@ -434,7 +435,7 @@ ${hunks.oldHunk}
         // 새로운 테스트 코드 생성 및 코멘트 추가
         const testCode = await testGenerator.generateBlocTest(filename, fileContent);
         if (testCode) {
-          await addTestCodeComment(filename, testCode, fileHash);
+          await addTestCodeComment(filename, testCode, fileHash, testGenerator);
         }
       } else {
         info(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
@@ -1077,9 +1078,15 @@ function extractCommentIds(commentChains: string): number[] {
   return matches.map(match => parseInt(match[1]))
 }
 
-const addTestCodeComment = async (filePath: string, testCode: string, fileHash: string): Promise<void> => {
+const addTestCodeComment = async (filePath: string, testCode: string, fileHash: string, testGenerator: TestGenerator): Promise<void> => {
   const unitTestTag = generateUnitTestTag(filePath, fileHash);
-  const comment = `
+  
+  try {
+    // 테스트 코드를 파일로 저장 및 PR에 추가 시도
+    const savedTest = await testGenerator.saveTestFile(filePath, testCode);
+    const testFilePath = savedTest.testFilePath;
+    
+    const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
 이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
@@ -1088,18 +1095,21 @@ const addTestCodeComment = async (filePath: string, testCode: string, fileHash: 
 ${testCode}
 \`\`\`
 
-이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+이 테스트 코드를 새 파일(${path.basename(testFilePath)})로 저장하거나 필요에 맞게 수정하여 사용하세요.
 
 ${unitTestTag}
 `;
-  debug(`Adding test code comment to ${filePath}: ${comment}`);
-  debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
-  await octokit.issues.createComment({
-    owner: repo.owner,
-    repo: repo.repo,
-    issue_number: context.payload.pull_request?.number || 0,
-    body: comment
-  });
+    debug(`Adding test code comment to ${filePath}: ${comment}`);
+    debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
+    await octokit.issues.createComment({
+      owner: repo.owner,
+      repo: repo.repo,
+      issue_number: context.payload.pull_request?.number || 0,
+      body: comment
+    });
+  } catch (error) {
+    warning(`Error adding test code comment: ${error}`);
+  }
 }
 
 // 정확한 파일 경로에 대한 테스트 코멘트를 찾는 함수
