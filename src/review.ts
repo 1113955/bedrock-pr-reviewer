@@ -19,6 +19,7 @@ import {type Options} from './options'
 import {type Prompts} from './prompts'
 import {getTokenCount} from './tokenizer'
 import { TestGenerator } from './test-generator';
+import { debug } from 'console'
 
 // eslint-disable-next-line camelcase
 const context = github_context
@@ -27,7 +28,7 @@ const repo = context.repo
 const ignoreKeyword = '/reviewbot: ignore'
 
 // 필수 태그 상수 정의
-const REQUIRED_TAG = '🚨 [필수]'
+export const REQUIRED_TAG = '🚨 [필수]'
 
 export const codeReview = async (
   lightBot: Bot,
@@ -1058,7 +1059,8 @@ ${testCode}
 
 이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
 `;
-
+  debug(`Adding test code comment to ${filePath}: ${comment}`);
+  debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
   await octokit.issues.createComment({
     owner: repo.owner,
     repo: repo.repo,

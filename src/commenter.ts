@@ -2,6 +2,7 @@ import {info, warning} from '@actions/core'
 // eslint-disable-next-line camelcase
 import {context as github_context} from '@actions/github'
 import {octokit} from './octokit'
+import { REQUIRED_TAG } from './review';
 
 // eslint-disable-next-line camelcase
 const context = github_context
@@ -274,7 +275,7 @@ ${statusMsg}
         comment.endLine
       )
       for (const c of comments) {
-        if (c.body.includes(COMMENT_TAG)) {
+        if (c.body.includes(COMMENT_TAG) && c.body.includes(REQUIRED_TAG) == false) {
           info(
             `Deleting review comment for ${comment.path}:${comment.startLine}-${comment.endLine}: ${comment.message}`
           )

@@ -2398,8 +2398,10 @@ class Bot {
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5438);
 /* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(_actions_github__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var _octokit__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(3258);
+/* harmony import */ var _review__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9973);
 
 // eslint-disable-next-line camelcase
+
 
 
 // eslint-disable-next-line camelcase
@@ -2592,7 +2594,7 @@ ${statusMsg}
         for (const comment of this.reviewCommentsBuffer) {
             const comments = await this.getCommentsAtRange(pullNumber, comment.path, comment.startLine, comment.endLine);
             for (const c of comments) {
-                if (c.body.includes(COMMENT_TAG)) {
+                if (c.body.includes(COMMENT_TAG) && c.body.includes(_review__WEBPACK_IMPORTED_MODULE_3__/* .REQUIRED_TAG */ .x) == false) {
                     (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Deleting review comment for ${comment.path}:${comment.startLine}-${comment.endLine}: ${comment.message}`);
                     try {
                         await _octokit__WEBPACK_IMPORTED_MODULE_2__/* .octokit.pulls.deleteReviewComment */ .K.pulls.deleteReviewComment({
@@ -5836,6 +5838,7 @@ const handleReviewComment = async (heavyBot, options, prompts) => {
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
+  "x": () => (/* binding */ REQUIRED_TAG),
   "z": () => (/* binding */ codeReview)
 });
 
@@ -6011,7 +6014,6 @@ class TestGenerator {
     // Bloc 파일에 대한 테스트 생성
     async generateBlocTest(filePath, fileContent) {
         (0,core.info)(`Generating unit tests for Bloc file: ${filePath}`);
-        (0,external_console_namespaceObject.debug)(`File content: ${fileContent}`);
         const prompt = this.createBlocTestPrompt(filePath, fileContent);
         (0,external_console_namespaceObject.debug)(`Prompt: ${prompt}`);
         try {
@@ -6108,6 +6110,7 @@ Remember to replace placeholder names with actual names from the provided Bloc f
 ;// CONCATENATED MODULE: ./lib/review.js
 
 // eslint-disable-next-line camelcase
+
 
 
 
@@ -6896,6 +6899,8 @@ ${testCode}
 
 이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
 `;
+    (0,external_console_namespaceObject.debug)(`Adding test code comment to ${filePath}: ${comment}`);
+    (0,external_console_namespaceObject.debug)(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
     await octokit/* octokit.issues.createComment */.K.issues.createComment({
         owner: repo.owner,
         repo: repo.repo,

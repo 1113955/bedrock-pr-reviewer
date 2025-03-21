@@ -17,7 +17,6 @@ export class TestGenerator {
   // Bloc 파일에 대한 테스트 생성
   async generateBlocTest(filePath: string, fileContent: string): Promise<string> {
     info(`Generating unit tests for Bloc file: ${filePath}`);
-    debug(`File content: ${fileContent}`);
 
     const prompt = this.createBlocTestPrompt(filePath, fileContent);
     debug(`Prompt: ${prompt}`);
