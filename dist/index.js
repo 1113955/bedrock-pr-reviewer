@@ -6961,8 +6961,8 @@ const addTestCodeComment = async (filePath, testCode, fileHash, testGenerator) =
     const unitTestTag = generateUnitTestTag(filePath, fileHash);
     try {
         // 테스트 코드를 파일로 저장 및 PR에 추가 시도
-        const savedTest = await testGenerator.saveTestFile(filePath, testCode);
-        const testFilePath = savedTest.testFilePath;
+        // const savedTest = await testGenerator.saveTestFile(filePath, testCode);
+        const testFilePath = filePath;
         const comment = `
 ### 🧪 자동 생성된 유닛 테스트(${testFilePath})
 
