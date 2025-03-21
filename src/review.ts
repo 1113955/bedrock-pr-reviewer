@@ -20,6 +20,7 @@ import {type Prompts} from './prompts'
 import {getTokenCount} from './tokenizer'
 import { TestGenerator } from './test-generator';
 import { debug } from 'console'
+import * as crypto from 'crypto'; // 해시 계산을 위한 모듈 import
 
 // eslint-disable-next-line camelcase
 const context = github_context
@@ -30,6 +31,16 @@ const ignoreKeyword = '/reviewbot: ignore'
 // 필수 태그 상수 정의
 export const REQUIRED_TAG = '🚨 [필수]'
 export const AUTO_GENERATED_UNIT_TEST_TAG = '<!-- This is an auto-generated unit test by AI reviewer -->'
+
+// 파일 내용으로부터 해시 생성 함수
+function generateFileHash(content: string): string {
+  return crypto.createHash('md5').update(content).digest('hex');
+}
+
+// 파일 해시를 포함하는 태그 생성 함수
+function generateUnitTestTag(fileHash: string): string {
+  return `${AUTO_GENERATED_UNIT_TEST_TAG} \n<!-- hash:${fileHash} -->`;
+}
 
 export const codeReview = async (
   lightBot: Bot,
@@ -402,15 +413,29 @@ ${hunks.oldHunk}
   // Bloc 파일에 대한 테스트 생성
   for (const [filename, fileContent] of filesAndChanges) {
     if (options.pathFilters.isBlocFile(filename)) {
+      const fileHash = generateFileHash(fileContent);
       // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
-      const existingTestComment = await findExistingTestComment(filename);
-      if (!existingTestComment) {
+      const existingComment = await findExistingTestComment(filename);
+      
+      // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
+      if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
+        if (existingComment) {
+          // 이전 코멘트 삭제
+          info(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
+          await octokit.issues.deleteComment({
+            owner: repo.owner,
+            repo: repo.repo,
+            comment_id: existingComment.id
+          });
+        }
+        
+        // 새로운 테스트 코드 생성 및 코멘트 추가
         const testCode = await testGenerator.generateBlocTest(filename, fileContent);
         if (testCode) {
-          await addTestCodeComment(filename, testCode);
+          await addTestCodeComment(filename, testCode, fileHash);
         }
       } else {
-        info(`테스트 코드가 이미 생성된 파일입니다: ${filename}`);
+        info(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
       }
     }
   }
@@ -618,7 +643,6 @@ ${
       })</summary>
 
 * ${skippedFiles.join('\n* ')}
-
 </details>
 `
     : ''
@@ -632,7 +656,6 @@ ${
       })</summary>
 
 * ${summariesFailed.join('\n* ')}
-
 </details>
 `
     : ''
@@ -845,7 +868,6 @@ ${
 <summary>Files not reviewed due to errors (${reviewsFailed.length})</summary>
 
 * ${reviewsFailed.join('\n* ')}
-
 </details>
 `
     : ''
@@ -858,7 +880,6 @@ ${
       })</summary>
 
 * ${reviewsSkipped.join('\n* ')}
-
 </details>
 `
     : ''
@@ -1054,7 +1075,8 @@ function extractCommentIds(commentChains: string): number[] {
   return matches.map(match => parseInt(match[1]))
 }
 
-const addTestCodeComment = async (filePath: string, testCode: string): Promise<void> => {
+const addTestCodeComment = async (filePath: string, testCode: string, fileHash: string): Promise<void> => {
+  const unitTestTag = generateUnitTestTag(fileHash);
   const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
@@ -1066,7 +1088,7 @@ ${testCode}
 
 이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
 
-${AUTO_GENERATED_UNIT_TEST_TAG}
+${unitTestTag}
 `;
   debug(`Adding test code comment to ${filePath}: ${comment}`);
   debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
@@ -1078,9 +1100,9 @@ ${AUTO_GENERATED_UNIT_TEST_TAG}
   });
 }
 
-// 이미 생성된 테스트 코멘트가 있는지 확인하는 함수
-async function findExistingTestComment(filename: string): Promise<boolean> {
-  if (!context.payload.pull_request?.number) return false;
+// 이미 생성된 테스트 코멘트를 찾는 함수 (코멘트 객체 자체를 반환)
+async function findExistingTestComment(filename: string): Promise<{id: number, body?: string} | null> {
+  if (!context.payload.pull_request?.number) return null;
   
   try {
     const comments = await octokit.issues.listComments({
@@ -1090,12 +1112,14 @@ async function findExistingTestComment(filename: string): Promise<boolean> {
     });
     
     // 파일명을 포함하고 AUTO_GENERATED_UNIT_TEST_TAG를 가진 코멘트 찾기
-    return comments.data.some(comment => 
+    const existingComment = comments.data.find(comment => 
       comment.body?.includes(filename) && 
       comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG)
     );
+    
+    return existingComment || null;
   } catch (error) {
     warning(`코멘트 확인 중 오류 발생: ${error}`);
-    return false;
+    return null;
   }
 }

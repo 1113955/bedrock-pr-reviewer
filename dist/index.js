@@ -2594,7 +2594,7 @@ ${statusMsg}
         for (const comment of this.reviewCommentsBuffer) {
             const comments = await this.getCommentsAtRange(pullNumber, comment.path, comment.startLine, comment.endLine);
             for (const c of comments) {
-                if (c.body.includes(COMMENT_TAG) && c.body.includes(_review__WEBPACK_IMPORTED_MODULE_3__/* .REQUIRED_TAG */ .x) == false) {
+                if (c.body.includes(COMMENT_TAG) && c.body.includes(_review__WEBPACK_IMPORTED_MODULE_3__/* .REQUIRED_TAG */ .xu) == false) {
                     (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Deleting review comment for ${comment.path}:${comment.startLine}-${comment.endLine}: ${comment.message}`);
                     try {
                         await _octokit__WEBPACK_IMPORTED_MODULE_2__/* .octokit.pulls.deleteReviewComment */ .K.pulls.deleteReviewComment({
@@ -3326,7 +3326,7 @@ async function run() {
         // check if the event is pull_request
         if (process.env.GITHUB_EVENT_NAME === 'pull_request' ||
             process.env.GITHUB_EVENT_NAME === 'pull_request_target') {
-            await (0,_review__WEBPACK_IMPORTED_MODULE_3__/* .codeReview */ .z)(lightBot, heavyBot, options, prompts);
+            await (0,_review__WEBPACK_IMPORTED_MODULE_3__/* .codeReview */ .zm)(lightBot, heavyBot, options, prompts);
         }
         else if (process.env.GITHUB_EVENT_NAME === 'pull_request_review_comment') {
             await (0,_review_comment__WEBPACK_IMPORTED_MODULE_4__/* .handleReviewComment */ .V)(heavyBot, options, prompts);
@@ -5838,9 +5838,11 @@ const handleReviewComment = async (heavyBot, options, prompts) => {
 
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
-  "x": () => (/* binding */ REQUIRED_TAG),
-  "z": () => (/* binding */ codeReview)
+  "xu": () => (/* binding */ REQUIRED_TAG),
+  "zm": () => (/* binding */ codeReview)
 });
+
+// UNUSED EXPORTS: AUTO_GENERATED_UNIT_TEST_TAG
 
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(2186);
@@ -6107,6 +6109,8 @@ Remember to replace placeholder names with actual names from the provided Bloc f
     }
 }
 
+// EXTERNAL MODULE: external "crypto"
+var external_crypto_ = __nccwpck_require__(6113);
 ;// CONCATENATED MODULE: ./lib/review.js
 
 // eslint-disable-next-line camelcase
@@ -6118,12 +6122,22 @@ Remember to replace placeholder names with actual names from the provided Bloc f
 
 
 
+ // 해시 계산을 위한 모듈 import
 // eslint-disable-next-line camelcase
 const context = github.context;
 const repo = context.repo;
 const ignoreKeyword = '/reviewbot: ignore';
 // 필수 태그 상수 정의
 const REQUIRED_TAG = '🚨 [필수]';
+const AUTO_GENERATED_UNIT_TEST_TAG = '<!-- This is an auto-generated unit test by AI reviewer -->';
+// 파일 내용으로부터 해시 생성 함수
+function generateFileHash(content) {
+    return external_crypto_.createHash('md5').update(content).digest('hex');
+}
+// 파일 해시를 포함하는 태그 생성 함수
+function generateUnitTestTag(fileHash) {
+    return `${AUTO_GENERATED_UNIT_TEST_TAG} \n<!-- hash:${fileHash} -->`;
+}
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
     const testGenerator = new TestGenerator(heavyBot, options.heavyTokenLimits);
@@ -6399,9 +6413,28 @@ ${hunks.oldHunk}
     // Bloc 파일에 대한 테스트 생성
     for (const [filename, fileContent] of filesAndChanges) {
         if (options.pathFilters.isBlocFile(filename)) {
-            const testCode = await testGenerator.generateBlocTest(filename, fileContent);
-            if (testCode) {
-                await addTestCodeComment(filename, testCode);
+            const fileHash = generateFileHash(fileContent);
+            // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
+            const existingComment = await findExistingTestComment(filename);
+            // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
+            if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
+                if (existingComment) {
+                    // 이전 코멘트 삭제
+                    (0,core.info)(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
+                    await octokit/* octokit.issues.deleteComment */.K.issues.deleteComment({
+                        owner: repo.owner,
+                        repo: repo.repo,
+                        comment_id: existingComment.id
+                    });
+                }
+                // 새로운 테스트 코드 생성 및 코멘트 추가
+                const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+                if (testCode) {
+                    await addTestCodeComment(filename, testCode, fileHash);
+                }
+            }
+            else {
+                (0,core.info)(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
             }
         }
     }
@@ -6559,7 +6592,6 @@ ${skippedFiles.length > 0
 <summary>Files not processed due to max files limit (${skippedFiles.length})</summary>
 
 * ${skippedFiles.join('\n* ')}
-
 </details>
 `
         : ''}
@@ -6569,7 +6601,6 @@ ${summariesFailed.length > 0
 <summary>Files not summarized due to errors (${summariesFailed.length})</summary>
 
 * ${summariesFailed.join('\n* ')}
-
 </details>
 `
         : ''}
@@ -6722,7 +6753,6 @@ ${reviewsFailed.length > 0
 <summary>Files not reviewed due to errors (${reviewsFailed.length})</summary>
 
 * ${reviewsFailed.join('\n* ')}
-
 </details>
 `
             : ''}
@@ -6731,7 +6761,6 @@ ${reviewsSkipped.length > 0
 <summary>Files skipped from review due to trivial changes (${reviewsSkipped.length})</summary>
 
 * ${reviewsSkipped.join('\n* ')}
-
 </details>
 `
             : ''}
@@ -6887,7 +6916,8 @@ function extractCommentIds(commentChains) {
     const matches = [...commentChains.matchAll(idPattern)];
     return matches.map(match => parseInt(match[1]));
 }
-const addTestCodeComment = async (filePath, testCode) => {
+const addTestCodeComment = async (filePath, testCode, fileHash) => {
+    const unitTestTag = generateUnitTestTag(fileHash);
     const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
@@ -6898,6 +6928,8 @@ ${testCode}
 \`\`\`
 
 이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+
+${unitTestTag}
 `;
     (0,external_console_namespaceObject.debug)(`Adding test code comment to ${filePath}: ${comment}`);
     (0,external_console_namespaceObject.debug)(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
@@ -6908,6 +6940,26 @@ ${testCode}
         body: comment
     });
 };
+// 이미 생성된 테스트 코멘트를 찾는 함수 (코멘트 객체 자체를 반환)
+async function findExistingTestComment(filename) {
+    if (!context.payload.pull_request?.number)
+        return null;
+    try {
+        const comments = await octokit/* octokit.issues.listComments */.K.issues.listComments({
+            owner: repo.owner,
+            repo: repo.repo,
+            issue_number: context.payload.pull_request.number
+        });
+        // 파일명을 포함하고 AUTO_GENERATED_UNIT_TEST_TAG를 가진 코멘트 찾기
+        const existingComment = comments.data.find(comment => comment.body?.includes(filename) &&
+            comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG));
+        return existingComment || null;
+    }
+    catch (error) {
+        (0,core.warning)(`코멘트 확인 중 오류 발생: ${error}`);
+        return null;
+    }
+}
 
 
 /***/ }),
