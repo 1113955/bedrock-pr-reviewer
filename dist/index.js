@@ -5997,6 +5997,8 @@ var tokenizer = __nccwpck_require__(652);
 const context = github.context;
 const repo = context.repo;
 const ignoreKeyword = '/reviewbot: ignore';
+// 필수 태그 상수 정의
+const REQUIRED_TAG = '🚨 [필수]';
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
     var existingReviewsContext = "";
@@ -6022,17 +6024,17 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         Includes COMMENT_TAG (case insensitive): ${comment.body?.toLowerCase().includes(lib_commenter/* COMMENT_TAG.toLowerCase */.Rs.toLowerCase())}
         Han ai generated comment: ${comment.body?.includes('This is an auto-generated reply by AI reviewer')} 
         Has HTML comment: ${comment.body?.includes('<!--')}
-        Starts with [필수]: ${comment.body?.trimStart().startsWith('[필수]')}
-        include with [필수]: ${comment.body?.includes('필수]')}
+        Starts with [필수]: ${comment.body?.trimStart().startsWith(REQUIRED_TAG)}
+        include with [필수]: ${comment.body?.includes(REQUIRED_TAG)}
       `);
         });
         const aiComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs));
         const aiReplyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD));
-        const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'));
+        const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith(REQUIRED_TAG));
         // Add handling for AI review comments with no replies
         const aiOnlyComments = comments.data.filter(comment => comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs) &&
             !comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD) &&
-            !comment.body?.trimStart().startsWith('[필수]'));
+            !comment.body?.trimStart().startsWith(REQUIRED_TAG));
         // Delete AI comments that have no replies
         const deletePromises = aiOnlyComments.map(async (comment) => {
             try {
@@ -6056,7 +6058,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         const nonRequiredComments = await Promise.all(comments.data
             .filter(comment => (comment.body?.includes(lib_commenter/* COMMENT_TAG */.Rs)
             || comment.body?.includes(lib_commenter/* COMMENT_REPLY_TAG */.aD))
-            && !comment.body?.trimStart().startsWith('[필수]'))
+            && !comment.body?.trimStart().startsWith(REQUIRED_TAG))
             .map(async (comment) => {
             // Get entire comment chain for this comment
             const { chain } = await commenter.getCommentChain(pullNumber, comment);

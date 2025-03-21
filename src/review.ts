@@ -25,6 +25,9 @@ const repo = context.repo
 
 const ignoreKeyword = '/reviewbot: ignore'
 
+// 필수 태그 상수 정의
+const REQUIRED_TAG = '🚨 [필수]'
+
 export const codeReview = async (
   lightBot: Bot,
   heavyBot: Bot,
@@ -57,20 +60,20 @@ export const codeReview = async (
         Includes COMMENT_TAG (case insensitive): ${comment.body?.toLowerCase().includes(COMMENT_TAG.toLowerCase())}
         Han ai generated comment: ${comment.body?.includes('This is an auto-generated reply by AI reviewer')} 
         Has HTML comment: ${comment.body?.includes('<!--')}
-        Starts with [필수]: ${comment.body?.trimStart().startsWith('[필수]')}
-        include with [필수]: ${comment.body?.includes('필수]')}
+        Starts with [필수]: ${comment.body?.trimStart().startsWith(REQUIRED_TAG)}
+        include with [필수]: ${comment.body?.includes(REQUIRED_TAG)}
       `)
     });
 
     const aiComments = comments.data.filter(comment => comment.body?.includes(COMMENT_TAG))
     const aiReplyComments = comments.data.filter(comment => comment.body?.includes(COMMENT_REPLY_TAG))
-    const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith('[필수]'))
+    const requiredComments = comments.data.filter(comment => comment.body?.trimStart().startsWith(REQUIRED_TAG))
     
     // Add handling for AI review comments with no replies
     const aiOnlyComments = comments.data.filter(comment => 
       comment.body?.includes(COMMENT_TAG) &&
       !comment.body?.includes(COMMENT_REPLY_TAG) && 
-      !comment.body?.trimStart().startsWith('[필수]')
+      !comment.body?.trimStart().startsWith(REQUIRED_TAG)
     );
 
     // Delete AI comments that have no replies
@@ -101,7 +104,7 @@ export const codeReview = async (
       .filter(comment => 
         (comment.body?.includes(COMMENT_TAG)
           || comment.body?.includes(COMMENT_REPLY_TAG))
-        && !comment.body?.trimStart().startsWith('[필수]')
+        && !comment.body?.trimStart().startsWith(REQUIRED_TAG)
       )
       .map(async (comment) => {
         // Get entire comment chain for this comment
