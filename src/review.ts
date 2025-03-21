@@ -38,8 +38,10 @@ function generateFileHash(content: string): string {
 }
 
 // 파일 해시를 포함하는 태그 생성 함수
-function generateUnitTestTag(fileHash: string): string {
-  return `${AUTO_GENERATED_UNIT_TEST_TAG} \n<!-- hash:${fileHash} -->`;
+function generateUnitTestTag(filePath: string, fileHash: string): string {
+  return `${AUTO_GENERATED_UNIT_TEST_TAG}
+<!-- file-path: ${filePath} -->
+<!-- hash: ${fileHash} -->`;
 }
 
 export const codeReview = async (
@@ -415,7 +417,7 @@ ${hunks.oldHunk}
     if (options.pathFilters.isBlocFile(filename)) {
       const fileHash = generateFileHash(fileContent);
       // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
-      const existingComment = await findExistingTestComment(filename);
+      const existingComment = await findExistingUnitTestComment(filename);
       
       // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
       if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
@@ -1076,7 +1078,7 @@ function extractCommentIds(commentChains: string): number[] {
 }
 
 const addTestCodeComment = async (filePath: string, testCode: string, fileHash: string): Promise<void> => {
-  const unitTestTag = generateUnitTestTag(fileHash);
+  const unitTestTag = generateUnitTestTag(filePath, fileHash);
   const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
@@ -1100,8 +1102,8 @@ ${unitTestTag}
   });
 }
 
-// 이미 생성된 테스트 코멘트를 찾는 함수 (코멘트 객체 자체를 반환)
-async function findExistingTestComment(filename: string): Promise<{id: number, body?: string} | null> {
+// 정확한 파일 경로에 대한 테스트 코멘트를 찾는 함수
+async function findExistingUnitTestComment(filename: string): Promise<{id: number, body?: string} | null> {
   if (!context.payload.pull_request?.number) return null;
   
   try {
@@ -1111,10 +1113,11 @@ async function findExistingTestComment(filename: string): Promise<{id: number, b
       issue_number: context.payload.pull_request.number
     });
     
-    // 파일명을 포함하고 AUTO_GENERATED_UNIT_TEST_TAG를 가진 코멘트 찾기
+    // 파일 경로 태그를 정확히 확인
+    const filePathTag = `<!-- file-path: ${filename} -->`;
     const existingComment = comments.data.find(comment => 
-      comment.body?.includes(filename) && 
-      comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG)
+      comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG) && 
+      comment.body?.includes(filePathTag)
     );
     
     return existingComment || null;

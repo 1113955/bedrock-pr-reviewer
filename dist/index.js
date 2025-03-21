@@ -6135,8 +6135,10 @@ function generateFileHash(content) {
     return external_crypto_.createHash('md5').update(content).digest('hex');
 }
 // 파일 해시를 포함하는 태그 생성 함수
-function generateUnitTestTag(fileHash) {
-    return `${AUTO_GENERATED_UNIT_TEST_TAG} \n<!-- hash:${fileHash} -->`;
+function generateUnitTestTag(filePath, fileHash) {
+    return `${AUTO_GENERATED_UNIT_TEST_TAG}
+<!-- file-path: ${filePath} -->
+<!-- hash: ${fileHash} -->`;
 }
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
@@ -6415,7 +6417,7 @@ ${hunks.oldHunk}
         if (options.pathFilters.isBlocFile(filename)) {
             const fileHash = generateFileHash(fileContent);
             // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
-            const existingComment = await findExistingTestComment(filename);
+            const existingComment = await findExistingUnitTestComment(filename);
             // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
             if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
                 if (existingComment) {
@@ -6917,7 +6919,7 @@ function extractCommentIds(commentChains) {
     return matches.map(match => parseInt(match[1]));
 }
 const addTestCodeComment = async (filePath, testCode, fileHash) => {
-    const unitTestTag = generateUnitTestTag(fileHash);
+    const unitTestTag = generateUnitTestTag(filePath, fileHash);
     const comment = `
 ### 🧪 자동 생성된 유닛 테스트
 
@@ -6940,8 +6942,8 @@ ${unitTestTag}
         body: comment
     });
 };
-// 이미 생성된 테스트 코멘트를 찾는 함수 (코멘트 객체 자체를 반환)
-async function findExistingTestComment(filename) {
+// 정확한 파일 경로에 대한 테스트 코멘트를 찾는 함수
+async function findExistingUnitTestComment(filename) {
     if (!context.payload.pull_request?.number)
         return null;
     try {
@@ -6950,9 +6952,10 @@ async function findExistingTestComment(filename) {
             repo: repo.repo,
             issue_number: context.payload.pull_request.number
         });
-        // 파일명을 포함하고 AUTO_GENERATED_UNIT_TEST_TAG를 가진 코멘트 찾기
-        const existingComment = comments.data.find(comment => comment.body?.includes(filename) &&
-            comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG));
+        // 파일 경로 태그를 정확히 확인
+        const filePathTag = `<!-- file-path: ${filename} -->`;
+        const existingComment = comments.data.find(comment => comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG) &&
+            comment.body?.includes(filePathTag));
         return existingComment || null;
     }
     catch (error) {
