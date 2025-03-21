@@ -29,6 +29,7 @@ const ignoreKeyword = '/reviewbot: ignore'
 
 // 필수 태그 상수 정의
 export const REQUIRED_TAG = '🚨 [필수]'
+export const AUTO_GENERATED_UNIT_TEST_TAG = '<!-- This is an auto-generated unit test by AI reviewer -->'
 
 export const codeReview = async (
   lightBot: Bot,
@@ -401,9 +402,15 @@ ${hunks.oldHunk}
   // Bloc 파일에 대한 테스트 생성
   for (const [filename, fileContent] of filesAndChanges) {
     if (options.pathFilters.isBlocFile(filename)) {
-      const testCode = await testGenerator.generateBlocTest(filename, fileContent);
-      if (testCode) {
-        await addTestCodeComment(filename, testCode);
+      // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
+      const existingTestComment = await findExistingTestComment(filename);
+      if (!existingTestComment) {
+        const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+        if (testCode) {
+          await addTestCodeComment(filename, testCode);
+        }
+      } else {
+        info(`테스트 코드가 이미 생성된 파일입니다: ${filename}`);
       }
     }
   }
@@ -1058,6 +1065,8 @@ ${testCode}
 \`\`\`
 
 이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+
+${AUTO_GENERATED_UNIT_TEST_TAG}
 `;
   debug(`Adding test code comment to ${filePath}: ${comment}`);
   debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
@@ -1067,4 +1076,26 @@ ${testCode}
     issue_number: context.payload.pull_request?.number || 0,
     body: comment
   });
+}
+
+// 이미 생성된 테스트 코멘트가 있는지 확인하는 함수
+async function findExistingTestComment(filename: string): Promise<boolean> {
+  if (!context.payload.pull_request?.number) return false;
+  
+  try {
+    const comments = await octokit.issues.listComments({
+      owner: repo.owner,
+      repo: repo.repo,
+      issue_number: context.payload.pull_request.number
+    });
+    
+    // 파일명을 포함하고 AUTO_GENERATED_UNIT_TEST_TAG를 가진 코멘트 찾기
+    return comments.data.some(comment => 
+      comment.body?.includes(filename) && 
+      comment.body?.includes(AUTO_GENERATED_UNIT_TEST_TAG)
+    );
+  } catch (error) {
+    warning(`코멘트 확인 중 오류 발생: ${error}`);
+    return false;
+  }
 }
