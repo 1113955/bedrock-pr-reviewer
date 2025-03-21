@@ -1087,7 +1087,7 @@ const addTestCodeComment = async (filePath: string, testCode: string, fileHash: 
     const testFilePath = savedTest.testFilePath;
     
     const comment = `
-### 🧪 자동 생성된 유닛 테스트
+### 🧪 자동 생성된 유닛 테스트(${testFilePath})
 
 이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
 
@@ -1095,7 +1095,7 @@ const addTestCodeComment = async (filePath: string, testCode: string, fileHash: 
 ${testCode}
 \`\`\`
 
-이 테스트 코드를 새 파일(${path.basename(testFilePath)})로 저장하거나 필요에 맞게 수정하여 사용하세요.
+이 테스트 코드를 새 파일(${testFilePath})로 저장하거나 필요에 맞게 수정하여 사용하세요.
 
 ${unitTestTag}
 `;

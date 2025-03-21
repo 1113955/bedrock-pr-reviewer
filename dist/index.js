@@ -5999,7 +5999,6 @@ var tokenizer = __nccwpck_require__(652);
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: external "path"
 var external_path_ = __nccwpck_require__(1017);
-var external_path_default = /*#__PURE__*/__nccwpck_require__.n(external_path_);
 ;// CONCATENATED MODULE: external "console"
 const external_console_namespaceObject = require("console");
 ;// CONCATENATED MODULE: ./lib/test-generator.js
@@ -6101,7 +6100,7 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
     async saveTestFile(filePath, testCode) {
         const dir = external_path_.dirname(filePath);
         const fileName = external_path_.basename(filePath, external_path_.extname(filePath));
-        const testFilePath = external_path_.join(dir, `${fileName}_test.dart`);
+        const testFilePath = external_path_.join(dir, `${fileName}_test.dart`).replace(/^lib/, 'test');
         try {
             // 로컬에 파일 저장 (선택 사항)
             await external_fs_.promises.writeFile(testFilePath, testCode);
@@ -6160,7 +6159,6 @@ var external_crypto_ = __nccwpck_require__(6113);
 
 
  // 해시 계산을 위한 모듈 import
-
 // eslint-disable-next-line camelcase
 const context = github.context;
 const repo = context.repo;
@@ -6963,7 +6961,7 @@ const addTestCodeComment = async (filePath, testCode, fileHash, testGenerator) =
         const savedTest = await testGenerator.saveTestFile(filePath, testCode);
         const testFilePath = savedTest.testFilePath;
         const comment = `
-### 🧪 자동 생성된 유닛 테스트
+### 🧪 자동 생성된 유닛 테스트(${testFilePath})
 
 이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
 
@@ -6971,7 +6969,7 @@ const addTestCodeComment = async (filePath, testCode, fileHash, testGenerator) =
 ${testCode}
 \`\`\`
 
-이 테스트 코드를 새 파일(${external_path_default().basename(testFilePath)})로 저장하거나 필요에 맞게 수정하여 사용하세요.
+이 테스트 코드를 새 파일(${testFilePath})로 저장하거나 필요에 맞게 수정하여 사용하세요.
 
 ${unitTestTag}
 `;

@@ -105,7 +105,7 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
   async saveTestFile(filePath: string, testCode: string): Promise<{ testFilePath: string, testCode: string }> {
     const dir = path.dirname(filePath);
     const fileName = path.basename(filePath, path.extname(filePath));
-    const testFilePath = path.join(dir, `${fileName}_test.dart`);
+    const testFilePath = path.join(dir, `${fileName}_test.dart`).replace(/^lib/, 'test');
     
     try {
       // 로컬에 파일 저장 (선택 사항)
