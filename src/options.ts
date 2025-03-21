@@ -52,8 +52,7 @@ export class Options {
     this.reviewSimpleChanges = reviewSimpleChanges
     this.reviewCommentLGTM = reviewCommentLGTM
     this.pathFilters = new PathFilter(pathFilters)
-    const defaultSystemMessage = `You are \`/reviewbot\` (aka \`github-actions[bot]\`)...`; // action.yml의 default 내용
-    this.systemMessage = systemMessage ? `${defaultSystemMessage}\n\n${systemMessage}` : defaultSystemMessage;
+    this.systemMessage = systemMessage
     this.reviewFileDiff = reviewFileDiff
     this.bedrockLightModel = bedrockLightModel
     this.bedrockHeavyModel = bedrockHeavyModel

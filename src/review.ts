@@ -34,7 +34,6 @@ export const codeReview = async (
   const commenter: Commenter = new Commenter()
   var existingReviewsContext = ""
 
-    // Add this section after initial setup
   const pullNumber = context.payload.pull_request?.number
   if (!pullNumber) return
 
@@ -123,15 +122,17 @@ export const codeReview = async (
       Non-required AI comments to resolve: ${nonRequiredComments.length}
     `)
 
-    // Add existing reviews to system message
+    // Add existing reviews to system message with more context
     existingReviewsContext = comments.data.length > 0 
-      ? `\\n\\nPreviously reviewed comments:\\n${
-          comments.data.map(comment => 
-            `File: ${comment.path}\\nLines: ${comment.start_line || comment.line}\\nComment: ${
-              comment.body?.replace(/\n/g, '\\n').replace(/\t/g, '\\t')
-            }`
-          ).join('\\n\\n')
-        }\\n\\nPlease avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on changed code only.`
+      ? `\\n\\nPreviously reviewed comments and their status:\\n${
+          comments.data.map(comment => {
+            const isResolved = comment.body?.includes('✅ Resolved:');
+            return `File: ${comment.path}\\n` +
+              `Lines: ${comment.start_line || comment.line}\\n` +
+              `Status: ${isResolved ? 'Resolved' : 'Open'}\\n` +
+              `Comment: ${comment.body?.replace(/\n/g, '\\n').replace(/\t/g, '\\t')}`;
+          }).join('\\n\\n')
+        }\\n\\nPlease consider these existing comments (including resolved ones) and avoid making duplicate or similar comments for issues that were already addressed.`
       : '';
 
     info(`Existing reviews context (escaped): ${existingReviewsContext}`);
@@ -189,7 +190,7 @@ export const codeReview = async (
     return
   }
 
-  info(`Existing reviews context: ${existingReviewsContext}`);  // 로깅 추가
+  info(`Existing reviews context: ${existingReviewsContext}`); 
   inputs.systemMessage = options.systemMessage + existingReviewsContext;
   inputs.reviewFileDiff = options.reviewFileDiff
 

@@ -3056,40 +3056,40 @@ ${commentBody}`;
         return similarity > similarityThreshold;
     }
     extractMainPoints(text) {
-        // 1. HTML 태그 및 마크다운 제거
-        const cleanText = text
+        // 1. 코드 블록 제거 후 텍스트 정제
+        const cleanText = this.removeCodeBlocks(text)
             .replace(/<[^>]*>/g, '') // HTML 태그 제거
-            .replace(/```[\s\S]*?```/g, '') // 코드 블록 제거
             .replace(/`.*?`/g, '') // 인라인 코드 제거
             .replace(/\[.*?\]/g, '') // 마크다운 링크 제거
             .replace(/\(.*?\)/g, '') // 괄호 내용 제거
-            .replace(/[#*_~]/g, ''); // 마크다운 서식 제거
-        // 2. 주요 문장 추출
+            .replace(/[#*_~]/g, '') // 마크다운 서식 제거
+            .replace(/<!--.*?-->/g, ''); // HTML 코멘트 제거
+        // 2. 문장 분리 및 필터링
         const sentences = cleanText
             .split(/[.!?]/)
             .map(s => s.trim())
             .filter(s => s.length > 0);
-        // 3. 핵심 문장만 선택 (코드 리뷰 관련 키워드 포함된 문장)
-        const relevantSentences = sentences.filter(sentence => {
-            const keywords = [
-                'widget', 'component', 'function', 'method', 'class',
-                'implement', 'change', 'update', 'fix', 'add',
-                'performance', 'security', 'bug', 'feature',
-                'validation', 'error', 'handle', 'check'
-            ];
-            return keywords.some(keyword => sentence.toLowerCase().includes(keyword));
-        });
-        return relevantSentences;
+        return sentences;
+    }
+    removeCodeBlocks(text) {
+        // 다중 라인 코드 블록 제거
+        const withoutCodeBlocks = text.replace(/```[\s\S]*?```/g, '');
+        // 단일 라인 코드 예시 제거 (예: `code`)
+        return withoutCodeBlocks.replace(/`[^`]+`/g, '');
     }
     async calculateSimilarity(newPoints, oldPoints) {
         try {
-            // 전체 문맥을 하나의 문단으로 합침
+            // 전체 문맥을 하나의 문단으로 합침 (코드 블록 제외)
             const newText = this.normalizeText(newPoints.join('. '));
             const oldText = this.normalizeText(oldPoints.join('. '));
             // 텍스트를 핵심 키워드로 변환
             const newKeywords = this.extractKeywords(newText);
             const oldKeywords = this.extractKeywords(oldText);
-            // 키워드 기반 유사도 계산
+            (0,_actions_core__WEBPACK_IMPORTED_MODULE_0__.info)(`Comparing text similarity:
+        New text: ${newText}
+        Old text: ${oldText}
+        New keywords: ${newKeywords.join(', ')}
+        Old keywords: ${oldKeywords.join(', ')}`);
             return this.calculateKeywordSimilarity(newKeywords, oldKeywords);
         }
         catch (error) {
@@ -5241,8 +5241,7 @@ class Options {
         this.reviewSimpleChanges = reviewSimpleChanges;
         this.reviewCommentLGTM = reviewCommentLGTM;
         this.pathFilters = new PathFilter(pathFilters);
-        const defaultSystemMessage = `You are \`/reviewbot\` (aka \`github-actions[bot]\`)...`; // action.yml의 default 내용
-        this.systemMessage = systemMessage ? `${defaultSystemMessage}\n\n${systemMessage}` : defaultSystemMessage;
+        this.systemMessage = systemMessage;
         this.reviewFileDiff = reviewFileDiff;
         this.bedrockLightModel = bedrockLightModel;
         this.bedrockHeavyModel = bedrockHeavyModel;
@@ -5471,12 +5470,25 @@ Additional Context: <pull_request_title>, <pull_request_description>, <pull_requ
 Task: Review new hunks for substantive issues using provided context and respond with comments if necessary.
 Output: Review comments in markdown with exact line number ranges in new hunks.
 
-Important guidelines:
+Important review guidelines:
 1. Check the existing review context first and avoid making duplicate comments
-2. Consider both open and resolved comments to understand what issues were already addressed
-3. If a similar issue was previously resolved, only comment if the current code introduces the same problem in a new way
-4. Focus on new or modified code sections that haven't been reviewed before
-5. When suggesting improvements, ensure they don't conflict with previously resolved issues
+2. Focus ONLY on substantive issues that require action, such as:
+   - Bugs or logical errors
+   - Security vulnerabilities
+   - Performance issues
+   - Concurrency problems
+   - Edge cases not handled
+   - Actual code quality issues that impact maintainability
+3. DO NOT comment on:
+   - Simple refactorings or renames that are correctly implemented
+   - Style changes that don't affect functionality
+   - Simple description of what the code does without actionable feedback
+   - Positive feedback without specific issues to fix
+4. When commenting, include:
+   - Clear explanation of the specific problem
+   - Concrete suggestion for improvement
+   - Code example when appropriate
+5. Use a severity threshold - only comment on issues that are medium or high severity
 
 $review_file_diff
 
@@ -5988,7 +6000,6 @@ const ignoreKeyword = '/reviewbot: ignore';
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
     var existingReviewsContext = "";
-    // Add this section after initial setup
     const pullNumber = context.payload.pull_request?.number;
     if (!pullNumber)
         return;
@@ -6061,9 +6072,15 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
       Required comments: ${requiredComments.length}
       Non-required AI comments to resolve: ${nonRequiredComments.length}
     `);
-        // Add existing reviews to system message
+        // Add existing reviews to system message with more context
         existingReviewsContext = comments.data.length > 0
-            ? `\\n\\nPreviously reviewed comments:\\n${comments.data.map(comment => `File: ${comment.path}\\nLines: ${comment.start_line || comment.line}\\nComment: ${comment.body?.replace(/\n/g, '\\n').replace(/\t/g, '\\t')}`).join('\\n\\n')}\\n\\nPlease avoid making duplicate comments for the same issues that were already reviewed. Instead, focus on changed code only.`
+            ? `\\n\\nPreviously reviewed comments and their status:\\n${comments.data.map(comment => {
+                const isResolved = comment.body?.includes('✅ Resolved:');
+                return `File: ${comment.path}\\n` +
+                    `Lines: ${comment.start_line || comment.line}\\n` +
+                    `Status: ${isResolved ? 'Resolved' : 'Open'}\\n` +
+                    `Comment: ${comment.body?.replace(/\n/g, '\\n').replace(/\t/g, '\\t')}`;
+            }).join('\\n\\n')}\\n\\nPlease consider these existing comments (including resolved ones) and avoid making duplicate or similar comments for issues that were already addressed.`
             : '';
         (0,core.info)(`Existing reviews context (escaped): ${existingReviewsContext}`);
         // Resolve comments in parallel with rate limiting
@@ -6104,7 +6121,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         (0,core.info)('Skipped: description contains ignore_keyword');
         return;
     }
-    (0,core.info)(`Existing reviews context: ${existingReviewsContext}`); // 로깅 추가
+    (0,core.info)(`Existing reviews context: ${existingReviewsContext}`);
     inputs.systemMessage = options.systemMessage + existingReviewsContext;
     inputs.reviewFileDiff = options.reviewFileDiff;
     // get SUMMARIZE_TAG message

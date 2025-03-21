@@ -88,12 +88,25 @@ Additional Context: <pull_request_title>, <pull_request_description>, <pull_requ
 Task: Review new hunks for substantive issues using provided context and respond with comments if necessary.
 Output: Review comments in markdown with exact line number ranges in new hunks.
 
-Important guidelines:
+Important review guidelines:
 1. Check the existing review context first and avoid making duplicate comments
-2. Consider both open and resolved comments to understand what issues were already addressed
-3. If a similar issue was previously resolved, only comment if the current code introduces the same problem in a new way
-4. Focus on new or modified code sections that haven't been reviewed before
-5. When suggesting improvements, ensure they don't conflict with previously resolved issues
+2. Focus ONLY on substantive issues that require action, such as:
+   - Bugs or logical errors
+   - Security vulnerabilities
+   - Performance issues
+   - Concurrency problems
+   - Edge cases not handled
+   - Actual code quality issues that impact maintainability
+3. DO NOT comment on:
+   - Simple refactorings or renames that are correctly implemented
+   - Style changes that don't affect functionality
+   - Simple description of what the code does without actionable feedback
+   - Positive feedback without specific issues to fix
+4. When commenting, include:
+   - Clear explanation of the specific problem
+   - Concrete suggestion for improvement
+   - Code example when appropriate
+5. Use a severity threshold - only comment on issues that are medium or high severity
 
 $review_file_diff
 
