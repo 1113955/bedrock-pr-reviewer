@@ -145,6 +145,13 @@ export class PathFilter {
 
     return (!inclusionRuleExists || included) && !excluded
   }
+
+  // Bloc 패턴 파일인지 확인하는 메서드
+  isBlocFile(path: string): boolean {
+    // 파일 경로나 이름에 'bloc'이 포함되어 있는지 확인
+    const blocPattern = /bloc/i;
+    return blocPattern.test(path);
+  }
 }
 
 export class BedrockOptions {

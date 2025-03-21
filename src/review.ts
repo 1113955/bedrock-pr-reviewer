@@ -18,6 +18,7 @@ import {octokit} from './octokit'
 import {type Options} from './options'
 import {type Prompts} from './prompts'
 import {getTokenCount} from './tokenizer'
+import { TestGenerator } from './test-generator';
 
 // eslint-disable-next-line camelcase
 const context = github_context
@@ -35,6 +36,7 @@ export const codeReview = async (
   prompts: Prompts
 ): Promise<void> => {
   const commenter: Commenter = new Commenter()
+  const testGenerator: TestGenerator = new TestGenerator(heavyBot, options.heavyTokenLimits);
   var existingReviewsContext = ""
 
   const pullNumber = context.payload.pull_request?.number
@@ -393,6 +395,16 @@ ${hunks.oldHunk}
   if (filesAndChanges.length === 0) {
     error('Skipped: no files to review')
     return
+  }
+
+  // Bloc 파일에 대한 테스트 생성
+  for (const [filename, fileContent] of filesAndChanges) {
+    if (options.pathFilters.isBlocFile(filename)) {
+      const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+      if (testCode) {
+        await addTestCodeComment(filename, testCode);
+      }
+    }
   }
 
   let statusMsg = `<details>
@@ -1032,4 +1044,25 @@ function extractCommentIds(commentChains: string): number[] {
   const idPattern = /Comment ID: (\d+)/g
   const matches = [...commentChains.matchAll(idPattern)]
   return matches.map(match => parseInt(match[1]))
+}
+
+const addTestCodeComment = async (filePath: string, testCode: string): Promise<void> => {
+  const comment = `
+### 🧪 자동 생성된 유닛 테스트
+
+이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
+
+\`\`\`dart
+${testCode}
+\`\`\`
+
+이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+`;
+
+  await octokit.issues.createComment({
+    owner: repo.owner,
+    repo: repo.repo,
+    issue_number: context.payload.pull_request?.number || 0,
+    body: comment
+  });
 }

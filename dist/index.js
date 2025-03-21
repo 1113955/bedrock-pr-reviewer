@@ -3278,7 +3278,7 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var _bot__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(8063);
 /* harmony import */ var _options__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(8870);
 /* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(4272);
-/* harmony import */ var _review__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(2612);
+/* harmony import */ var _review__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(6398);
 /* harmony import */ var _review_comment__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(5947);
 /* harmony import */ var _permission__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(3552);
 
@@ -5328,6 +5328,12 @@ class PathFilter {
         }
         return (!inclusionRuleExists || included) && !excluded;
     }
+    // Bloc 패턴 파일인지 확인하는 메서드
+    isBlocFile(path) {
+        // 파일 경로나 이름에 'bloc'이 포함되어 있는지 확인
+        const blocPattern = /bloc/i;
+        return blocPattern.test(path);
+    }
 }
 class BedrockOptions {
     model;
@@ -5823,7 +5829,7 @@ const handleReviewComment = async (heavyBot, options, prompts) => {
 
 /***/ }),
 
-/***/ 2612:
+/***/ 6398:
 /***/ ((__unused_webpack_module, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -5984,9 +5990,119 @@ var lib_inputs = __nccwpck_require__(6180);
 var octokit = __nccwpck_require__(3258);
 // EXTERNAL MODULE: ./lib/tokenizer.js
 var tokenizer = __nccwpck_require__(652);
+// EXTERNAL MODULE: external "fs"
+var external_fs_ = __nccwpck_require__(7147);
+// EXTERNAL MODULE: external "path"
+var external_path_ = __nccwpck_require__(1017);
+;// CONCATENATED MODULE: ./lib/test-generator.js
+
+
+
+class TestGenerator {
+    bot;
+    tokenLimits;
+    constructor(bot, tokenLimits) {
+        this.bot = bot;
+        this.tokenLimits = tokenLimits;
+    }
+    // Bloc 파일에 대한 테스트 생성
+    async generateBlocTest(filePath, fileContent) {
+        (0,core.info)(`Generating unit tests for Bloc file: ${filePath}`);
+        const prompt = this.createBlocTestPrompt(filePath, fileContent);
+        try {
+            const [response] = await this.bot.chat(prompt);
+            return this.parseTestCode(response);
+        }
+        catch (error) {
+            (0,core.info)(`Error generating tests: ${error}`);
+            return '';
+        }
+    }
+    // 테스트 생성을 위한 프롬프트 작성
+    createBlocTestPrompt(filePath, fileContent) {
+        return `
+You are an expert in Flutter development, specifically in implementing the Bloc pattern and writing comprehensive unit tests. Your task is to create a complete set of unit tests for a given Flutter Bloc file.
+
+Here is the content of the Flutter Bloc file:
+\`\`\`
+${fileContent}
+\`\`\`
+
+And here is the path to the Flutter Bloc file:
+File: ${filePath}
+
+Before writing the tests, please analyze the Bloc file in detail. Conduct your analysis inside <bloc_analysis> tags, considering the following aspects:
+
+1. List all events and states defined in the Bloc.
+2. For each event, describe its main functionality and logic flow within the Bloc.
+3. Identify any dependencies that need to be mocked for testing.
+4. Outline potential success and error scenarios for each event.
+5. Plan the structure of the test file, including necessary imports, test groups, and individual test cases.
+
+After your analysis, generate comprehensive unit tests that meet the following criteria:
+1. Test all events and states identified in your analysis.
+2. Cover both success and error scenarios for each event.
+3. Mock all necessary dependencies.
+4. Utilize the bloc_test package for efficient Bloc testing.
+5. Follow best practices for testing the Bloc pattern in Flutter.
+
+Your output should be valid Dart code for a complete test file, without any additional explanations. Include necessary imports, test groups, and individual test cases. Ensure that your tests are thorough and would provide good coverage of the Bloc's functionality.
+
+Here's an example of the structure your output should follow:
+
+\`\`\`dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:bloc_test/bloc_test.dart';
+// Other necessary imports
+
+void main() {
+  group('YourBlocName', () {
+    // Setup and teardown
+
+    blocTest<YourBlocName, YourBlocState>(
+      'description of the test case',
+      build: () => YourBlocName(),
+      act: (bloc) => bloc.add(YourEvent()),
+      expect: () => [
+        // Expected states
+      ],
+    );
+
+    // More test cases...
+  });
+}
+\`\`\`
+
+Remember to replace placeholder names with actual names from the provided Bloc file and to include all necessary test cases.
+    `;
+    }
+    // 응답에서 테스트 코드만 추출
+    parseTestCode(response) {
+        const codeBlockRegex = /```(?:dart)?\n([\s\S]*?)```/;
+        const match = response.match(codeBlockRegex);
+        return match ? match[1].trim() : response.trim();
+    }
+    // 테스트 파일 저장
+    async saveTestFile(filePath, testCode) {
+        const dir = external_path_.dirname(filePath);
+        const fileName = external_path_.basename(filePath, external_path_.extname(filePath));
+        const testFilePath = external_path_.join(dir, `${fileName}_test.dart`);
+        try {
+            await external_fs_.promises.writeFile(testFilePath, testCode);
+            (0,core.info)(`Test file saved: ${testFilePath}`);
+            return testFilePath;
+        }
+        catch (error) {
+            (0,core.info)(`Error saving test file: ${error}`);
+            throw error;
+        }
+    }
+}
+
 ;// CONCATENATED MODULE: ./lib/review.js
 
 // eslint-disable-next-line camelcase
+
 
 
 
@@ -6001,6 +6117,7 @@ const ignoreKeyword = '/reviewbot: ignore';
 const REQUIRED_TAG = '🚨 [필수]';
 const codeReview = async (lightBot, heavyBot, options, prompts) => {
     const commenter = new lib_commenter/* Commenter */.Es();
+    const testGenerator = new TestGenerator(heavyBot, options.heavyTokenLimits);
     var existingReviewsContext = "";
     const pullNumber = context.payload.pull_request?.number;
     if (!pullNumber)
@@ -6269,6 +6386,15 @@ ${hunks.oldHunk}
     if (filesAndChanges.length === 0) {
         (0,core.error)('Skipped: no files to review');
         return;
+    }
+    // Bloc 파일에 대한 테스트 생성
+    for (const [filename, fileContent] of filesAndChanges) {
+        if (options.pathFilters.isBlocFile(filename)) {
+            const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+            if (testCode) {
+                await addTestCodeComment(filename, testCode);
+            }
+        }
     }
     let statusMsg = `<details>
 <summary>Commits</summary>
@@ -6752,6 +6878,25 @@ function extractCommentIds(commentChains) {
     const matches = [...commentChains.matchAll(idPattern)];
     return matches.map(match => parseInt(match[1]));
 }
+const addTestCodeComment = async (filePath, testCode) => {
+    const comment = `
+### 🧪 자동 생성된 유닛 테스트
+
+이 Bloc 파일에 대해 자동 생성된 유닛 테스트입니다:
+
+\`\`\`dart
+${testCode}
+\`\`\`
+
+이 테스트 코드를 새 파일로 저장하거나 필요에 맞게 수정하여 사용하세요.
+`;
+    await octokit/* octokit.issues.createComment */.K.issues.createComment({
+        owner: repo.owner,
+        repo: repo.repo,
+        issue_number: context.payload.pull_request?.number || 0,
+        body: comment
+    });
+};
 
 
 /***/ }),
