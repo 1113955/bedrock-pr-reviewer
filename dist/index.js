@@ -3278,7 +3278,7 @@ __nccwpck_require__.r(__webpack_exports__);
 /* harmony import */ var _bot__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(8063);
 /* harmony import */ var _options__WEBPACK_IMPORTED_MODULE_2__ = __nccwpck_require__(8870);
 /* harmony import */ var _prompts__WEBPACK_IMPORTED_MODULE_6__ = __nccwpck_require__(4272);
-/* harmony import */ var _review__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(6398);
+/* harmony import */ var _review__WEBPACK_IMPORTED_MODULE_3__ = __nccwpck_require__(9973);
 /* harmony import */ var _review_comment__WEBPACK_IMPORTED_MODULE_4__ = __nccwpck_require__(5947);
 /* harmony import */ var _permission__WEBPACK_IMPORTED_MODULE_5__ = __nccwpck_require__(3552);
 
@@ -5829,7 +5829,7 @@ const handleReviewComment = async (heavyBot, options, prompts) => {
 
 /***/ }),
 
-/***/ 6398:
+/***/ 9973:
 /***/ ((__unused_webpack_module, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -5994,7 +5994,10 @@ var tokenizer = __nccwpck_require__(652);
 var external_fs_ = __nccwpck_require__(7147);
 // EXTERNAL MODULE: external "path"
 var external_path_ = __nccwpck_require__(1017);
+;// CONCATENATED MODULE: external "console"
+const external_console_namespaceObject = require("console");
 ;// CONCATENATED MODULE: ./lib/test-generator.js
+
 
 
 
@@ -6008,9 +6011,12 @@ class TestGenerator {
     // Bloc 파일에 대한 테스트 생성
     async generateBlocTest(filePath, fileContent) {
         (0,core.info)(`Generating unit tests for Bloc file: ${filePath}`);
+        (0,external_console_namespaceObject.debug)(`File content: ${fileContent}`);
         const prompt = this.createBlocTestPrompt(filePath, fileContent);
+        (0,external_console_namespaceObject.debug)(`Prompt: ${prompt}`);
         try {
             const [response] = await this.bot.chat(prompt);
+            (0,external_console_namespaceObject.debug)(`Response: ${response}`);
             return this.parseTestCode(response);
         }
         catch (error) {

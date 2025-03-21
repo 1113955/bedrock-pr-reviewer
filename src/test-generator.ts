@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Bot } from './bot';
 import { info } from '@actions/core';
 import { TokenLimits } from './limits';
+import { debug } from 'console';
 
 export class TestGenerator {
   private bot: Bot;
@@ -16,11 +17,14 @@ export class TestGenerator {
   // Bloc 파일에 대한 테스트 생성
   async generateBlocTest(filePath: string, fileContent: string): Promise<string> {
     info(`Generating unit tests for Bloc file: ${filePath}`);
+    debug(`File content: ${fileContent}`);
 
     const prompt = this.createBlocTestPrompt(filePath, fileContent);
-    
+    debug(`Prompt: ${prompt}`);
+
     try {
       const [response] = await this.bot.chat(prompt);
+      debug(`Response: ${response}`);
       return this.parseTestCode(response);
     } catch (error) {
       info(`Error generating tests: ${error}`);
