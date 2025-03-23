@@ -148,6 +148,11 @@ export class PathFilter {
 
   // Bloc 패턴 파일인지 확인하는 메서드
   isBlocFile(path: string): boolean {
+    // test로 시작하는 path는 제외
+    if (path.startsWith('test')) {
+      return false;
+    }
+    
     // 파일 경로나 이름에 'bloc'이 포함되어 있는지 확인
     const blocPattern = /bloc/i;
     return blocPattern.test(path);
