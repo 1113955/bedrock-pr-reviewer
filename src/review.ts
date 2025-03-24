@@ -414,34 +414,40 @@ ${hunks.oldHunk}
   }
 
   // Bloc 파일에 대한 테스트 생성
-  for (const [filename, fileContent] of filesAndChanges) {
-    if (options.pathFilters.isBlocFile(filename)) {
-      const fileHash = generateFileHash(fileContent);
-      // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
-      const existingComment = await findExistingUnitTestComment(filename);
+  // for (const [filename, fileContent] of filesAndChanges) {
+  //   if (options.pathFilters.isBlocFile(filename)) {
+  //     const fileHash = generateFileHash(fileContent);
+  //     // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
+  //     const existingComment = await findExistingUnitTestComment(filename);
+
+  //     // 이미 unit test 파일이 존재하는지 확인. 
+  //     const testFilePath = path.join(
+  //       path.dirname(filename),
+  //       `test_${path.basename(filename)}`
+  //     );
       
-      // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
-      if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
-        if (existingComment) {
-          // 이전 코멘트 삭제
-          info(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
-          await octokit.issues.deleteComment({
-            owner: repo.owner,
-            repo: repo.repo,
-            comment_id: existingComment.id
-          });
-        }
+  //     // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
+  //     if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
+  //       if (existingComment) {
+  //         // 이전 코멘트 삭제
+  //         info(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
+  //         await octokit.issues.deleteComment({
+  //           owner: repo.owner,
+  //           repo: repo.repo,
+  //           comment_id: existingComment.id
+  //         });
+  //       }
         
-        // 새로운 테스트 코드 생성 및 코멘트 추가
-        const testCode = await testGenerator.generateBlocTest(filename, fileContent);
-        if (testCode) {
-          await addTestCodeComment(filename, testCode, fileHash, testGenerator);
-        }
-      } else {
-        info(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
-      }
-    }
-  }
+  //       // 새로운 테스트 코드 생성 및 코멘트 추가
+  //       const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+  //       if (testCode) {
+  //         await addTestCodeComment(filename, testCode, fileHash, testGenerator);
+  //       }
+  //     } else {
+  //       info(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
+  //     }
+  //   }
+  // }
 
   let statusMsg = `<details>
 <summary>Commits</summary>

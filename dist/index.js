@@ -5996,7 +5996,7 @@ var lib_commenter = __nccwpck_require__(3339);
 // EXTERNAL MODULE: ./lib/inputs.js
 var lib_inputs = __nccwpck_require__(6180);
 // EXTERNAL MODULE: ./lib/octokit.js
-var octokit = __nccwpck_require__(3258);
+var lib_octokit = __nccwpck_require__(3258);
 // EXTERNAL MODULE: ./lib/tokenizer.js
 var tokenizer = __nccwpck_require__(652);
 // EXTERNAL MODULE: external "fs"
@@ -6119,7 +6119,7 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
                     const repo = context.repo;
                     // 현재 브랜치의 최신 커밋 정보 가져오기
                     const branchRef = `heads/${context.payload.pull_request.head.ref}`;
-                    const refData = await octokit/* octokit.git.getRef */.K.git.getRef({
+                    const refData = await lib_octokit/* octokit.git.getRef */.K.git.getRef({
                         owner: repo.owner,
                         repo: repo.repo,
                         ref: branchRef.replace('refs/', '')
@@ -6127,7 +6127,7 @@ IMPORTANT: You must return ONLY the Dart code without any explanations or transl
                     // 파일 내용을 base64로 인코딩하여 저장
                     const fileContent = Buffer.from(testCode).toString('base64');
                     // PR 브랜치에 파일 추가
-                    await octokit/* octokit.repos.createOrUpdateFileContents */.K.repos.createOrUpdateFileContents({
+                    await lib_octokit/* octokit.repos.createOrUpdateFileContents */.K.repos.createOrUpdateFileContents({
                         owner: repo.owner,
                         repo: repo.repo,
                         path: testFilePath,
@@ -6175,7 +6175,7 @@ const REQUIRED_TAG = '🚨 [필수]';
 const AUTO_GENERATED_UNIT_TEST_TAG = '<!-- This is an auto-generated unit test by AI reviewer -->';
 // 파일 내용으로부터 해시 생성 함수
 function generateFileHash(content) {
-    return external_crypto_.createHash('md5').update(content).digest('hex');
+    return crypto.createHash('md5').update(content).digest('hex');
 }
 // 파일 해시를 포함하는 태그 생성 함수
 function generateUnitTestTag(filePath, fileHash) {
@@ -6193,7 +6193,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
     (0,core.info)(`codeReview pullNumber ${pullNumber}`);
     try {
         // Get all review comments
-        const comments = await octokit/* octokit.pulls.listReviewComments */.K.pulls.listReviewComments({
+        const comments = await lib_octokit/* octokit.pulls.listReviewComments */.K.pulls.listReviewComments({
             owner: repo.owner,
             repo: repo.repo,
             pull_number: pullNumber
@@ -6226,7 +6226,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
                 const replies = comments.data.filter(reply => reply.in_reply_to_id === comment.id);
                 if (replies.length === 0) {
                     (0,core.info)(`Deleting unused AI comment ${comment.id}`);
-                    await octokit/* octokit.pulls.deleteReviewComment */.K.pulls.deleteReviewComment({
+                    await lib_octokit/* octokit.pulls.deleteReviewComment */.K.pulls.deleteReviewComment({
                         owner: repo.owner,
                         repo: repo.repo,
                         comment_id: comment.id
@@ -6336,14 +6336,14 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
         (0,core.info)(`Will review from commit: ${highestReviewedCommitId}`);
     }
     // Fetch the diff between the highest reviewed commit and the latest commit of the PR branch
-    const incrementalDiff = await octokit/* octokit.repos.compareCommits */.K.repos.compareCommits({
+    const incrementalDiff = await lib_octokit/* octokit.repos.compareCommits */.K.repos.compareCommits({
         owner: repo.owner,
         repo: repo.repo,
         base: highestReviewedCommitId,
         head: context.payload.pull_request.head.sha
     });
     // Fetch the diff between the target branch's base commit and the latest commit of the PR branch
-    const targetBranchDiff = await octokit/* octokit.repos.compareCommits */.K.repos.compareCommits({
+    const targetBranchDiff = await lib_octokit/* octokit.repos.compareCommits */.K.repos.compareCommits({
         owner: repo.owner,
         repo: repo.repo,
         base: context.payload.pull_request.base.sha,
@@ -6391,7 +6391,7 @@ const codeReview = async (lightBot, heavyBot, options, prompts) => {
             return null;
         }
         try {
-            const contents = await octokit/* octokit.repos.getContent */.K.repos.getContent({
+            const contents = await lib_octokit/* octokit.repos.getContent */.K.repos.getContent({
                 owner: repo.owner,
                 repo: repo.repo,
                 path: file.filename,
@@ -6456,33 +6456,37 @@ ${hunks.oldHunk}
         return;
     }
     // Bloc 파일에 대한 테스트 생성
-    for (const [filename, fileContent] of filesAndChanges) {
-        if (options.pathFilters.isBlocFile(filename)) {
-            const fileHash = generateFileHash(fileContent);
-            // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
-            const existingComment = await findExistingUnitTestComment(filename);
-            // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
-            if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
-                if (existingComment) {
-                    // 이전 코멘트 삭제
-                    (0,core.info)(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
-                    await octokit/* octokit.issues.deleteComment */.K.issues.deleteComment({
-                        owner: repo.owner,
-                        repo: repo.repo,
-                        comment_id: existingComment.id
-                    });
-                }
-                // 새로운 테스트 코드 생성 및 코멘트 추가
-                const testCode = await testGenerator.generateBlocTest(filename, fileContent);
-                if (testCode) {
-                    await addTestCodeComment(filename, testCode, fileHash, testGenerator);
-                }
-            }
-            else {
-                (0,core.info)(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
-            }
-        }
-    }
+    // for (const [filename, fileContent] of filesAndChanges) {
+    //   if (options.pathFilters.isBlocFile(filename)) {
+    //     const fileHash = generateFileHash(fileContent);
+    //     // 이미 해당 파일에 대한 테스트 코멘트가 있는지 확인
+    //     const existingComment = await findExistingUnitTestComment(filename);
+    //     // 이미 unit test 파일이 존재하는지 확인. 
+    //     const testFilePath = path.join(
+    //       path.dirname(filename),
+    //       `test_${path.basename(filename)}`
+    //     );
+    //     // 파일 내용이 변경되었거나 이전 코멘트가 없는 경우
+    //     if (!existingComment || !existingComment.body?.includes(`hash:${fileHash}`)) {
+    //       if (existingComment) {
+    //         // 이전 코멘트 삭제
+    //         info(`테스트 코드가 업데이트되어 이전 코멘트를 삭제합니다: ${filename}`);
+    //         await octokit.issues.deleteComment({
+    //           owner: repo.owner,
+    //           repo: repo.repo,
+    //           comment_id: existingComment.id
+    //         });
+    //       }
+    //       // 새로운 테스트 코드 생성 및 코멘트 추가
+    //       const testCode = await testGenerator.generateBlocTest(filename, fileContent);
+    //       if (testCode) {
+    //         await addTestCodeComment(filename, testCode, fileHash, testGenerator);
+    //       }
+    //     } else {
+    //       info(`테스트 코드가 이미 생성된 파일입니다(해시 동일): ${filename}`);
+    //     }
+    //   }
+    // }
     let statusMsg = `<details>
 <summary>Commits</summary>
 Files that changed from the base of the PR and between ${highestReviewedCommitId} and ${context.payload.pull_request.head.sha} commits.
@@ -6980,9 +6984,9 @@ ${testCode}
 
 ${unitTestTag}
 `;
-        (0,external_console_namespaceObject.debug)(`Adding test code comment to ${filePath}: ${comment}`);
-        (0,external_console_namespaceObject.debug)(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
-        await octokit/* octokit.issues.createComment */.K.issues.createComment({
+        debug(`Adding test code comment to ${filePath}: ${comment}`);
+        debug(`repo: ${repo}, repo.owner: ${repo.owner}, issue_number: ${context.payload.pull_request?.number}`);
+        await octokit.issues.createComment({
             owner: repo.owner,
             repo: repo.repo,
             issue_number: context.payload.pull_request?.number || 0,
@@ -6990,7 +6994,7 @@ ${unitTestTag}
         });
     }
     catch (error) {
-        (0,core.warning)(`Error adding test code comment: ${error}`);
+        warning(`Error adding test code comment: ${error}`);
     }
 };
 // 정확한 파일 경로에 대한 테스트 코멘트를 찾는 함수
@@ -6998,7 +7002,7 @@ async function findExistingUnitTestComment(filename) {
     if (!context.payload.pull_request?.number)
         return null;
     try {
-        const comments = await octokit/* octokit.issues.listComments */.K.issues.listComments({
+        const comments = await octokit.issues.listComments({
             owner: repo.owner,
             repo: repo.repo,
             issue_number: context.payload.pull_request.number
@@ -7010,7 +7014,7 @@ async function findExistingUnitTestComment(filename) {
         return existingComment || null;
     }
     catch (error) {
-        (0,core.warning)(`코멘트 확인 중 오류 발생: ${error}`);
+        warning(`코멘트 확인 중 오류 발생: ${error}`);
         return null;
     }
 }
