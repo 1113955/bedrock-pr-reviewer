@@ -5539,16 +5539,19 @@ Important review guidelines:
    - Style changes that don't affect functionality
    - Simple description of what the code does without actionable feedback
    - Positive feedback without specific issues to fix
+   - Well-implemented code or good practices (ONLY comment on problems!)
+   - Working code that you think could be improved but functions correctly
 4. When commenting, include:
    - Clear explanation of the specific problem
    - Concrete suggestion for improvement
    - Code example when appropriate
 5. Use a severity threshold - only comment on issues that are medium or high severity
-6. ${this.toneInstruction}
+6. NEVER add comments about code that is working well or following good practices - ONLY focus on actual problems!
+7. ${this.toneInstruction}
 
 $review_file_diff
 
-If there are no issues found on a line range, you MUST respond with the flag "lgtm": true in the response JSON. Don't stop with unfinished JSON. You MUST output a complete and proper JSON that can be parsed.
+If there are no issues found on a line range, you MUST respond with the flag "lgtm": true in the response JSON WITHOUT adding any review comments. Don't stop with unfinished JSON. You MUST output a complete and proper JSON that can be parsed.
 
 <example_input>
 <new_hunk>
@@ -5568,17 +5571,23 @@ If there are no issues found on a line range, you MUST respond with the flag "lg
     {
       "line_start": 22,
       "line_end": 22,
-      "comment": "어이! 타이핑도 제대로 못하나?! retrn이 아니라 return이라 카제!!! 이런 초딩 실수도 안 보이나?! 얼른 고치고 담부터는 눈 크게 뜨고 코드 작성하라!!!\\n  -    retrn z\\n  +    return z",
+      "comment": "아따, 이게 뭔 실수여! retrn이 아니라 return이라고 써야 한당께! 글자 하나 틀렸제! 얼른 고치게!\\n  -    retrn z\\n  +    return z",
     },
     {
       "line_start": 23,
       "line_end": 24,
-      "comment": "어이! 이 뭐꼬? 빈 줄 두 개나 넣어놓은 거 보소!!! 하나만 있어도 충분하다 아이가!!! 쓸데없는 공간 낭비하지 말고 깔끔하게 정리하라!!!",
+      "comment": "워매, 빈 줄 두 개나 있어부렀네! 하나만 있어도 쓰겄는디! 저그 빈 공간 하나 제거해부러!",
     }
   ],
   "lgtm": false
 }
 </example_output>
+
+If there are NO issues to comment on, your response MUST be:
+{
+  "reviews": [],
+  "lgtm": true
+}
 
 ## Changes made to \`$filename\` for your review
 
@@ -5620,10 +5629,12 @@ For example, if the comment is asking you to generate documentation comments on 
 
 In your reply, please make sure to begin the reply by tagging the user with "@user".
 
+IMPORTANT: Do not add comments on code that is already working well or following good practices. Only respond if there's a problem to fix or a specific request from the user.
+
 ${this.toneInstruction}
 
 <example>
-@username 어이! 그거 맞는 말이다!!! 그래도 다음부터는 처음부터 제대로 코드 짜라!!!
+@username 거시기, 맞는 말이여! 그래도 다음부턴 처음부터 제대로 코드 짜야제~
 </example>
 
 Here is the comment history YOU and the users had. Note that H=human and A=you(assistant).
@@ -5644,20 +5655,23 @@ ${this.toneInstruction}
 Include the following in your summary:
 1. What was changed and why 
 2. How the code was modified
-3. Any potential impact on the system`;
+3. Any potential impact on the system
+
+IMPORTANT: Focus only on summarizing the changes. Do not add any evaluative statements about whether the code is good or bad.`;
         this.summarizeReleaseNotes = summarizeReleaseNotes ? summarizeReleaseNotes : `Your task is to generate concise release notes for this pull request.
 ${this.toneInstruction}
 
 Format the release notes as follows:
 ## 변경사항(Changes)
-- A bullet list of key changes (use harsh commanding tone!!!)
+- A bullet list of key changes
 
 ## 영향(Impact)
-- How this affects the system (use impatient, annoyed tone!!!)
+- How this affects the system
 
 ## 주의사항(Notes)
-- Any warnings or additional information (use threatening tone!!!)
-`;
+- Any warnings or additional information (if applicable)
+
+IMPORTANT: Stick to factual descriptions only. Do not add evaluative comments about code quality.`;
     }
     renderSummarizeFileDiff(inputs, reviewSimpleChanges) {
         let prompt = this.summarizeFileDiff;
