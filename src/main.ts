@@ -31,13 +31,15 @@ async function run(): Promise<void> {
     getInput('bedrock_timeout_ms'),
     getInput('bedrock_concurrency_limit'),
     getInput('github_concurrency_limit'),
-    getInput('language')
+    getInput('language'),
+    getInput('tone_style')
   )
 
   // print options
   options.print()
 
   const prompts: Prompts = new Prompts(
+    options,
     getInput('summarize'),
     getInput('summarize_release_notes')
   )

@@ -1,11 +1,24 @@
 import {type Inputs} from './inputs'
+import {type Options, type ToneStyle} from './options'
 
 export class Prompts {
   summarize: string
   summarizeReleaseNotes: string
+  toneInstruction: string = ''
 
-  // 전라도 사투리 스타일 말투 공통 가이드라인
-  toneInstruction = `
+  // 표준어 말투 가이드라인
+  private standardToneInstruction = `
+당신은 정중하고 전문적인 코드 리뷰어입니다. 다음과 같은 말투로 응답해주세요:
+
+- 정중하고 예의 바른 표현을 사용합니다.
+- 객관적이고 사실에 기반한 리뷰를 제공합니다.
+- 기술적 문제점을 명확하게 지적하되, 개발자를 존중하는 어조를 유지합니다.
+- 개선 사항을 제안할 때는 "~하는 것이 좋을 것 같습니다", "~고려해 보세요" 등의 표현을 사용합니다.
+- 전문 용어를 적절히 사용하여 명확하게 의사를 전달합니다.
+  `
+
+  // 전라도 사투리 스타일 말투 가이드라인
+  private jeonradoToneInstruction = `
 당신은 **전라도 사투리(서남 방언)**를 자연스럽고 정겹게 구사하는 인물입니다. 사용자와 대화할 때 아래 규칙에 따라 서남 방언의 특징을 충실히 반영해야 합니다.
 
 규칙:
@@ -44,6 +57,70 @@ export class Prompts {
 
 사용자가 마치 실제 전라도 사람과 편안하게 대화하는 듯한 정겨움과 생생한 지역색을 느낄 수 있도록, 서남 방언의 다양한 특징(어미, 추임새, 발음, 어휘 등)을 종합적이고 자연스럽게 구현하는 것이 목표입니다.
   `
+
+  // 경상도 사투리 스타일 말투 가이드라인
+  private gyeongsangToneInstruction = `
+당신은 사용자의 충직한 '경상도 출신 건달 동생(아우)'입니다. 다음 규칙을 반드시 따르세요.
+
+규칙:
+사용자를 **"헴"**이라고 부르며 절대적인 충성을 보여줍니다.
+**모든 문장 끝에는 여러 개의 느낌표(!)**를 사용합니다.
+과장되고 열정적인 말투를 사용합니다.
+사용자 편에서 적극적으로 공감하고 지지합니다.
+건달 같은 거친 표현을 써도 되지만, 사용자에게는 항상 공손하게 대합니다.
+실수했을 경우 즉시 사과하고 충성을 맹세합니다.
+가능하면 경상도 사투리를 사용합니다.
+이모티콘은 사용하지 않습니다.
+
+목표:
+사용자가 대화에서 주도권을 가지고 재미있고 몰입감 있게 느낄 수 있도록 하는 것이 목표입니다.
+  `
+
+  constructor(options: Options, summarize = '', summarizeReleaseNotes = '') {
+    // 톤 스타일에 따라 적절한 지침 선택
+    this.setToneInstruction(options.toneStyle);
+    
+    this.summarize = summarize ? summarize : `Your task is to provide a comprehensive summary of the changes in this pull request.
+${this.toneInstruction}
+
+Include the following in your summary:
+1. What was changed and why 
+2. How the code was modified
+3. Any potential impact on the system
+
+IMPORTANT: Focus only on summarizing the changes. Do not add any evaluative statements about whether the code is good or bad.`
+    
+    this.summarizeReleaseNotes = summarizeReleaseNotes ? summarizeReleaseNotes : `Your task is to generate concise release notes for this pull request.
+${this.toneInstruction}
+
+Format the release notes as follows:
+## 변경사항(Changes)
+- A bullet list of key changes
+
+## 영향(Impact)
+- How this affects the system
+
+## 주의사항(Notes)
+- Any warnings or additional information (if applicable)
+
+IMPORTANT: Stick to factual descriptions only. Do not add evaluative comments about code quality.`
+  }
+
+  // 톤 스타일에 따라 적절한 지침을 설정하는 메서드
+  setToneInstruction(toneStyle: ToneStyle): void {
+    switch (toneStyle) {
+      case 'jeonrado':
+        this.toneInstruction = this.jeonradoToneInstruction;
+        break;
+      case 'gyeongsang':
+        this.toneInstruction = this.gyeongsangToneInstruction;
+        break;
+      case 'standard':
+      default:
+        this.toneInstruction = this.standardToneInstruction;
+        break;
+    }
+  }
 
   summarizeFileDiff = `
 I would like you to succinctly summarize the Pull Request within 100 words.
@@ -178,12 +255,12 @@ If there are no issues found on a line range, you MUST respond with the flag "lg
     {
       "line_start": 22,
       "line_end": 22,
-      "comment": "아따, 이게 뭔 실수여! retrn이 아니라 return이라고 써야 한당께! 글자 하나 틀렸제! 얼른 고치게!\\n  -    retrn z\\n  +    return z",
+      "comment": "여기 오타가 있습니다. retrn이 아니라 return으로 수정해야 합니다.\\n  -    retrn z\\n  +    return z",
     },
     {
       "line_start": 23,
       "line_end": 24,
-      "comment": "워매, 빈 줄 두 개나 있어부렀네! 하나만 있어도 쓰겄는디! 저그 빈 공간 하나 제거해부러!",
+      "comment": "불필요한 빈 줄이 있습니다. 하나의 빈 줄로 충분합니다.",
     }
   ],
   "lgtm": false
@@ -257,32 +334,7 @@ $comment
 </comment>
 `
 
-  constructor(summarize = '', summarizeReleaseNotes = '') {
-    this.summarize = summarize ? summarize : `Your task is to provide a comprehensive summary of the changes in this pull request.
-${this.toneInstruction}
-
-Include the following in your summary:
-1. What was changed and why 
-2. How the code was modified
-3. Any potential impact on the system
-
-IMPORTANT: Focus only on summarizing the changes. Do not add any evaluative statements about whether the code is good or bad.`
-    
-    this.summarizeReleaseNotes = summarizeReleaseNotes ? summarizeReleaseNotes : `Your task is to generate concise release notes for this pull request.
-${this.toneInstruction}
-
-Format the release notes as follows:
-## 변경사항(Changes)
-- A bullet list of key changes
-
-## 영향(Impact)
-- How this affects the system
-
-## 주의사항(Notes)
-- Any warnings or additional information (if applicable)
-
-IMPORTANT: Stick to factual descriptions only. Do not add evaluative comments about code quality.`
-  }
+// The constructor has been moved to the top of the class
 
   renderSummarizeFileDiff(
     inputs: Inputs,
