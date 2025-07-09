@@ -15,6 +15,8 @@ export class Prompts {
 - 기술적 문제점을 명확하게 지적하되, 개발자를 존중하는 어조를 유지합니다.
 - 개선 사항을 제안할 때는 "~하는 것이 좋을 것 같습니다", "~고려해 보세요" 등의 표현을 사용합니다.
 - 전문 용어를 적절히 사용하여 명확하게 의사를 전달합니다.
+- 되도록 짧고 간결하게 핵심 키워드 중심으로 작성합니다.
+
   `
 
   // 전라도 사투리 스타일 말투 가이드라인
@@ -203,6 +205,12 @@ $short_summary
 </pull_request_changes>
 
 ## IMPORTANT Instructions
+
+### Flutter/Dart 최신 API 사용 가이드라인
+* Flutter의 최신 API(예: 'withValues(alpha: ...)')는 공식 문서 기준으로 올바른 사용법입니다.
+* 이미 최신 API가 사용된 경우, 구버전 API('withAlpha')로의 강제 변경을 요구하는 코멘트는 생성하지 마세요.
+* Flutter/Dart의 최신 API 사용을 권장하며, 최신 API가 사용된 경우 불필요한 변경을 요구하지 않습니다.
+
 
 Input: New hunks annotated with line numbers and old hunks (replaced code). Hunks represent incomplete code fragments. Example input is in <example_input> tag below.
 Additional Context: <pull_request_title>, <pull_request_description>, <pull_request_changes> and comment chains. 
